@@ -1,7 +1,7 @@
 ---
 title: "Illustrations with the World Values Survey data in R"
 author: "Mike Cheung"
-date: 'June 07, 2018'
+date: "June 9 2018"
 output:
   html_document:
     keep_md: yes
@@ -15,15 +15,11 @@ editor_options:
   chunk_output_type: console
 ---
 
-# Data preparation
-* Before running the analyses, we need to install some R packages and download the data. The analyses should run fine in computer systems with at least 4GB RAM.
-
-## Preparing the dataset
-* The dataset is available at http://www.worldvaluessurvey.org/WVSDocumentationWVL.jsp. Users are required to register before downloading the data.
-* In this illustration, we use the dataset in the R format (`WVS_Longitudinal_1981-2014_rdata_v_2015_04_18.zip`).
+# Preparing the dataset
+* The dataset is available at http://www.worldvaluessurvey.org/WVSDocumentationWVL.jsp. Users are required to register before they can download the data.
+* In this illustration, we will use the dataset in the R format (`WVS_Longitudinal_1981-2014_rdata_v_2015_04_18.zip`).
 * The dataset contains data from 343,309 participants on 1,377 variables spanning across 100 regions and 6 waves (1981-1984, 1990-1994, 1995-1998, 1999-2004, 2005-2009, and 2010-2014).
 * The sizes of the data in hard disk and in RAM are 1,389 MB and 1,821 MB, respectively.
-* The latest version of the data may be slightly different from that used in this illustration.
 * The following R code is used to read and clean up the data. The final data set is named `WVS.Rdata` for ease of manipulations.
 * As an illustration, we only used 25% of the original data in this workshop.
 
@@ -55,6 +51,7 @@ set.seed(391373)
 # Randomly select 25% of the data for the workshop
 size <- 0.25
 
+## Group by S002 (Wave) and S003 (Region)
 # Select 25% of the data
 WVS <- WVS %>% group_by(S002, S003) %>% sample_frac(size=size) 
 
@@ -76,7 +73,7 @@ save(WVS, file="WVS.Rdata")
 * The variables used in this demonstration are:
     + *State of health (subjective)* (A009): 1 (Very good); 4 (Very poor) (it is reversed before the analyses)
     + *Satisfaction with your life* (A170): 1 (Dissatisfied); 10 (Satisfied)
-    + *How much freedom of choice and control* (A173): 1 (None at all); 10 (A great deal)
+    + *How much freedom of choice and control* (A173): 1 (None =at all); 10 (A great deal)
     + *Satisfaction with fiNAcial situation of household* (C006): 1 (None at all); 10 (A great deal)
     + *Sex* (X001): 1 (Male); 2 (Female)
     + *Age* (X003)
@@ -158,7 +155,7 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                             ## Extract the regression coefficients excluding the intercept
                             y <- unname(coef(fit))
                             ## Extract the sampling covariance matrix excluding the intercept
-                            v <- lav_matrix_vech(vcov(fit)[-1,-1])
+                            v <- vech(vcov(fit)[-1,-1])
                             c(y1=y[2],y2=y[3],y3=y[4],y4=y[5],y5=y[6],
                                  v11=v[1],v21=v[2],v31=v[3],v41=v[4],v51=v[5],
                                  v22=v[6],v32=v[7],v42=v[8],v52=v[9],v33=v[10],
@@ -315,7 +312,7 @@ summary( lm(A170~A009+A173+C006+X001+X003, data=WVS) )
 ![](./figures/extra1.png)
 
 ## Stratified split: Random-effects meta-analysis
-* The data are grouped according to `Wave` and `Country`. It makes more sense to run analyses by `Wave` and `Country`.
+* The data are grouped according to `Wave` and `Country`. It may make more sense to run the analyses by `Wave` and `Country`.
 * Random-effects models are used to account for the differences in `Wave` and `Country` and mixed-effects models are also fitted by using `Wave` as a moderator.
 
 ```r
@@ -420,7 +417,8 @@ WVS <- mutate(WVS,
 ## Function to fit regression model
 ## y1 to y5: Regression coefficients from A170, A009, A173, C006, X001, and X003.
 ## v11 to v55: Sampling covariance matrix of the parameter estimates
-fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt), silent=TRUE)
+fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
+                                     silent=TRUE)
 
                           ## If there are errors during the analysis, it returns missing values.
                           if (is.element("try-error", class(fit))) {
@@ -486,10 +484,10 @@ head(REM1.reg)
 ```
 
 ```r
-########## Meta-analyze results with a mixed-effects meta-analysis by using "Wave"" as a predictor
-RE.constraints <- Diag(paste(0.1, "*Tau2_", 1:5, "_", 1:5, sep = ""))
+########## Meta-analyze results with a random-effects model
 REM2.reg <- meta(y=cbind(y1,y2,y3,y4,y5),
-                   v=cbind(v11,v21,v31,v41,v51,v22,v32,v42,v52,v33,v43,v53,v44,v54,v55),
+                   v=cbind(v11,v21,v31,v41,v51,v22,v32,v42,v52,
+                           v33,v43,v53,v44,v54,v55),
                    data=REM1.reg,
                    model.name="Regression analysis REM")
 ## Rerun the analysis to remove error code
@@ -859,6 +857,12 @@ summary(REM3.med)
     + *Justifiable: cheating on taxes* (F116)
     + *Justifiable: someone accepting a bribe in the course of their duties* (F117)
     + 1 (Never justifiable) to 10 (Always justifiable); negative values represent missing values. They were recoded into missing values before the analysis.
+* We may either use the covariance or correlation matrices in the analyses:
+    + **Covariance** matrix: measurement invariance
+    + **Correlation** matrix: only structural relationship
+* In this example, we illustrate the use of the covariance matrix estimated in each `Wave` and `Country`.
+* The covariance matrices are used to fit a one-factor confirmatory factor analysis with the random-effects two-stage structural equation modeling (TSSEM) approach.
+
 
 ```r
 ## Clear all objects in the work space
@@ -878,110 +882,128 @@ WVS <- mutate(WVS,
               F115 = ifelse(F115 < 0, yes=NA, no=F115),
               F116 = ifelse(F116 < 0, yes=NA, no=F116),
               F117 = ifelse(F117 < 0, yes=NA, no=F117))
-```
 
-## Confirmatory factor analysis using the TSSEM approach
-* We estimate the correlation matrix in each `Wave` and `Country`.
-* The correlation matrices are used to fit a one-factor confirmatory factor analysis with the random-effects two-stage structural equation modeling (TSSEM) approach.
-
-```r
-## Function to extract correlation matrix and sample sizes
-## c21 to c43: Correlation matrix based on pairwise deletion among F114, F115, F116, and F117.
-## n: Sample size based on the harmonic mean of the sample sizes in the correlation coefficients.
-fun.cor <- function(dt) { ## Calculate the correlation matrix with pairwise deletion
-                         my.dt <- dt[, c("F114", "F115", "F116", "F117")] 
-    fit <- try(suppressWarnings(cor(my.dt, use="pairwise.complete.obs")), silent=TRUE)
-
-                          ## Calculate the sample sizes based on harmonic mean
-                          na.n <- t(!is.na(my.dt)) %*% !is.na(my.dt)
-                          pairwise.n <- na.n[lower.tri(na.n)]
-                          pairwise.n[pairwise.n==0] <- NA
-                          ## harmonic mean
-                          n <- as.integer(1/mean(1/pairwise.n, na.rm=TRUE))
-
-                          if (is.element("try-error", class(fit))) {
-                            c(c21=NA,c31=NA,c41=NA,c32=NA,
-                                 c42=NA,c43=NA,n=NA)
-                          } else {
-                            ## regression coefficients excluding the intercept
-                            c(c21=fit[2,1],c31=fit[3,1],c41=fit[4,1],
-                                 c32=fit[3,2],c42=fit[4,2],c43=fit[4,3],n=n)
-                          }
+## Function to calculate the covariance matrices and sample sizes without any missing data
+fun.cov <- function(dt) { 
+  my.dt <- dt[, c("F114", "F115", "F116", "F117")] 
+  ## Calculate the covariance matrix based on the complete data
+  Cov <- try(suppressWarnings(cov(my.dt, use="complete.obs")), silent=TRUE)
+  
+  ## Calculate the sample sizes based on the complete cases
+  n <- length(complete.cases(my.dt))
+  
+  ## Return NA when there are errors
+  if (is.element("try-error", class(Cov))) {
+    list(Cov=NA, n=NA)
+  } else {
+    ## regression coefficients excluding the intercept
+    list(Cov=Cov, n=n)
+  }
 }
 
 ########## Split data by Wave and Country and extract the correlation matrices
 ########## and sample size with the fun.cor() function
-stage0.cor <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.cor(.)))
+stage0.cov <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.cov(.)))
+stage0.cov
+```
 
-## Split the data into a list for ease of data analyses
-data.splitted <- split(stage0.cor$mod, 1:nrow(stage0.cor))
-head(data.splitted)
+```
+## Source: local data frame [238 x 3]
+## Groups: <by row>
+## 
+## # A tibble: 238 x 3
+##     S002  S003 mod       
+##  * <int> <int> <list>    
+##  1     1    32 <list [2]>
+##  2     1    36 <list [2]>
+##  3     1   246 <list [2]>
+##  4     1   348 <list [2]>
+##  5     1   392 <list [2]>
+##  6     1   410 <list [2]>
+##  7     1   484 <list [2]>
+##  8     1   710 <list [2]>
+##  9     2    32 <list [2]>
+## 10     2    76 <list [2]>
+## # ... with 228 more rows
+```
+
+```r
+## Extract the covariance matrices and sample sizes
+data.splitted <- split(stage0.cov$mod, 1:nrow(stage0.cov))
+head(data.splitted, n=2)
 ```
 
 ```
 ## $`1`
 ## $`1`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.4276592   0.3409112   0.1984701   0.4962125   0.3283519   0.2596337 
-##           n 
-## 207.0000000 
+## $`1`[[1]]$Cov
+##           F114      F115      F116      F117
+## F114 5.2401401 1.9980712 1.7036699 0.4293944
+## F115 1.9980712 4.5911883 2.0575098 0.5850464
+## F116 1.7036699 2.0575098 3.9884270 0.4387595
+## F117 0.4293944 0.5850464 0.4387595 0.9059439
+## 
+## $`1`[[1]]$n
+## [1] 251
+## 
 ## 
 ## 
 ## $`2`
 ## $`2`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.6348911   0.4279605   0.5622051   0.6021144   0.4686962   0.3947632 
-##           n 
-## 300.0000000 
+## $`2`[[1]]$Cov
+##          F114     F115     F116     F117
+## F114 4.042856 2.829255 2.346508 1.720607
+## F115 2.829255 4.930423 3.640250 1.580300
+## F116 2.346508 3.640250 7.338892 1.626534
+## F117 1.720607 1.580300 1.626534 2.324724
 ## 
-## 
-## $`3`
-## $`3`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.4876803   0.2516686   0.1146764   0.5300899   0.3364932   0.3438648 
-##           n 
-## 249.0000000 
-## 
-## 
-## $`4`
-## $`4`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.3429389          NA   0.1433075          NA   0.1871320          NA 
-##           n 
-## 355.0000000 
-## 
-## 
-## $`5`
-## $`5`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.2910520   0.2094705   0.2963162   0.6068304   0.3915523   0.3728690 
-##           n 
-## 273.0000000 
-## 
-## 
-## $`6`
-## $`6`[[1]]
-##         c21         c31         c41         c32         c42         c43 
-##   0.4591659   0.3095474   0.2922520   0.5110482   0.3251759   0.4513482 
-##           n 
-## 228.0000000
+## $`2`[[1]]$n
+## [1] 307
 ```
 
 ```r
-## Convert correlation coefficients into correlation matrices
-data.cor <- lapply(data.splitted, function(x) vec2symMat(unlist(x)[1:6], diag=FALSE) )
+## A list of covariance matrices
+data.cov <- lapply(data.splitted, function(x) x[[1]]$Cov)
+head(data.cov, n=2)
+```
 
-## Extract the sample sizes
-data.n <- sapply(data.splitted, function(x) unlist(x)[7])
+```
+## $`1`
+##           F114      F115      F116      F117
+## F114 5.2401401 1.9980712 1.7036699 0.4293944
+## F115 1.9980712 4.5911883 2.0575098 0.5850464
+## F116 1.7036699 2.0575098 3.9884270 0.4387595
+## F117 0.4293944 0.5850464 0.4387595 0.9059439
+## 
+## $`2`
+##          F114     F115     F116     F117
+## F114 4.042856 2.829255 2.346508 1.720607
+## F115 2.829255 4.930423 3.640250 1.580300
+## F116 2.346508 3.640250 7.338892 1.626534
+## F117 1.720607 1.580300 1.626534 2.324724
+```
 
+```r
+## A vector of sample sizes
+data.n <- sapply(data.splitted, function(x) x[[1]]$n)
+head(data.n)
+```
+
+```
+##   1   2   3   4   5   6 
+## 251 307 251  NA 301 242
+```
+
+```r
 ## Remove groups without any data (n)
 index.na <- is.na(data.n)
 data.n <- data.n[!index.na]
-data.cor <- data.cor[!index.na]
+data.cov <- data.cov[!index.na]
 
 ########## Meta-analyze results with the TSSEM random-effects model
-REM1.cfa <- tssem1(data.cor, data.n, method="REM", RE.type="Diag",
-                   model.name="One factor model REM")
+## cor.analysis = FALSE: analysis of covariance matrices
+REM1.cfa <- tssem1(data.cov, data.n, method="REM", RE.type="Diag",
+                   cor.analysis = FALSE)
 ## Rerun the analysis to remove error code
 ## REM1.cfa <- rerun(REM1.cfa)
 summary(REM1.cfa)
@@ -997,55 +1019,67 @@ summary(REM1.cfa)
 ## 
 ## 95% confidence intervals: z statistic approximation
 ## Coefficients:
-##             Estimate Std.Error    lbound    ubound z value  Pr(>|z|)    
-## Intercept1 0.4273339 0.0092214 0.4092603 0.4454075 46.3415 < 2.2e-16 ***
-## Intercept2 0.3750287 0.0093440 0.3567148 0.3933426 40.1359 < 2.2e-16 ***
-## Intercept3 0.3260451 0.0098283 0.3067820 0.3453081 33.1742 < 2.2e-16 ***
-## Intercept4 0.4794613 0.0090860 0.4616531 0.4972695 52.7693 < 2.2e-16 ***
-## Intercept5 0.3825516 0.0092032 0.3645136 0.4005895 41.5671 < 2.2e-16 ***
-## Intercept6 0.4940876 0.0110790 0.4723731 0.5158020 44.5968 < 2.2e-16 ***
-## Tau2_1_1   0.0166511 0.0017821 0.0131583 0.0201440  9.3436 < 2.2e-16 ***
-## Tau2_2_2   0.0167790 0.0018142 0.0132232 0.0203347  9.2488 < 2.2e-16 ***
-## Tau2_3_3   0.0194352 0.0020583 0.0154011 0.0234694  9.4425 < 2.2e-16 ***
-## Tau2_4_4   0.0159304 0.0017137 0.0125716 0.0192892  9.2958 < 2.2e-16 ***
-## Tau2_5_5   0.0165697 0.0017639 0.0131124 0.0200269  9.3936 < 2.2e-16 ***
-## Tau2_6_6   0.0253260 0.0025688 0.0202913 0.0303607  9.8592 < 2.2e-16 ***
+##             Estimate Std.Error   lbound   ubound z value  Pr(>|z|)    
+## Intercept1  5.309808  0.152065 5.011766 5.607850 34.9180 < 2.2e-16 ***
+## Intercept2  2.187638  0.078968 2.032864 2.342413 27.7029 < 2.2e-16 ***
+## Intercept3  1.807313  0.074368 1.661555 1.953071 24.3024 < 2.2e-16 ***
+## Intercept4  1.306304  0.068463 1.172119 1.440490 19.0804 < 2.2e-16 ***
+## Intercept5  5.107079  0.154357 4.804545 5.409612 33.0862 < 2.2e-16 ***
+## Intercept6  2.304251  0.085684 2.136315 2.472188 26.8926 < 2.2e-16 ***
+## Intercept7  1.464499  0.065933 1.335274 1.593724 22.2121 < 2.2e-16 ***
+## Intercept8  4.426382  0.147533 4.137223 4.715541 30.0027 < 2.2e-16 ***
+## Intercept9  1.760145  0.085049 1.593451 1.926838 20.6956 < 2.2e-16 ***
+## Intercept10 2.896797  0.131741 2.638590 3.155004 21.9886 < 2.2e-16 ***
+## Tau2_1_1    4.836520  0.480675 3.894415 5.778626 10.0619 < 2.2e-16 ***
+## Tau2_2_2    1.248770  0.128471 0.996971 1.500569  9.7202 < 2.2e-16 ***
+## Tau2_3_3    1.113660  0.113986 0.890253 1.337068  9.7702 < 2.2e-16 ***
+## Tau2_4_4    0.961187  0.096698 0.771662 1.150712  9.9401 < 2.2e-16 ***
+## Tau2_5_5    4.996338  0.494291 4.027546 5.965130 10.1081 < 2.2e-16 ***
+## Tau2_6_6    1.502021  0.152227 1.203662 1.800381  9.8670 < 2.2e-16 ***
+## Tau2_7_7    0.887169  0.089614 0.711528 1.062810  9.8999 < 2.2e-16 ***
+## Tau2_8_8    4.596720  0.452496 3.709843 5.483596 10.1586 < 2.2e-16 ***
+## Tau2_9_9    1.517366  0.150058 1.223258 1.811475 10.1119 < 2.2e-16 ***
+## Tau2_10_10  3.710587  0.361238 3.002574 4.418600 10.2719 < 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Q statistic on the homogeneity of effect sizes: 11928.5
-## Degrees of freedom of the Q statistic: 1328
+## Q statistic on the homogeneity of effect sizes: 66380.06
+## Degrees of freedom of the Q statistic: 2160
 ## P value of the Q statistic: 0
 ## 
 ## Heterogeneity indices (based on the estimated Tau2):
-##                              Estimate
-## Intercept1: I2 (Q statistic)   0.8922
-## Intercept2: I2 (Q statistic)   0.8840
-## Intercept3: I2 (Q statistic)   0.8930
-## Intercept4: I2 (Q statistic)   0.8953
-## Intercept5: I2 (Q statistic)   0.8840
-## Intercept6: I2 (Q statistic)   0.9361
+##                               Estimate
+## Intercept1: I2 (Q statistic)    0.9676
+## Intercept2: I2 (Q statistic)    0.9301
+## Intercept3: I2 (Q statistic)    0.9348
+## Intercept4: I2 (Q statistic)    0.9504
+## Intercept5: I2 (Q statistic)    0.9698
+## Intercept6: I2 (Q statistic)    0.9483
+## Intercept7: I2 (Q statistic)    0.9463
+## Intercept8: I2 (Q statistic)    0.9760
+## Intercept9: I2 (Q statistic)    0.9701
+## Intercept10: I2 (Q statistic)   0.9869
 ## 
-## Number of studies (or clusters): 230
-## Number of observed statistics: 1334
-## Number of estimated parameters: 12
-## Degrees of freedom: 1322
-## -2 log likelihood: -1299.944 
+## Number of studies (or clusters): 217
+## Number of observed statistics: 2170
+## Number of estimated parameters: 20
+## Degrees of freedom: 2150
+## -2 log likelihood: 7975.364 
 ## OpenMx status1: 0 ("0" or "1": The optimization is considered fine.
 ## Other values may indicate problems.)
 ```
 
 ```r
-## Show the pooled correlation matrix
-vec2symMat(coef(REM1.cfa, select="fixed"), diag=FALSE)
+## Show the pooled covariance matrix
+vec2symMat(coef(REM1.cfa, select="fixed"), diag=TRUE)
 ```
 
 ```
-##           [,1]      [,2]      [,3]      [,4]
-## [1,] 1.0000000 0.4273339 0.3750287 0.3260451
-## [2,] 0.4273339 1.0000000 0.4794613 0.3825516
-## [3,] 0.3750287 0.4794613 1.0000000 0.4940876
-## [4,] 0.3260451 0.3825516 0.4940876 1.0000000
+##          [,1]     [,2]     [,3]     [,4]
+## [1,] 5.309808 2.187638 1.807313 1.306304
+## [2,] 2.187638 5.107079 2.304251 1.464499
+## [3,] 1.807313 2.304251 4.426382 1.760145
+## [4,] 1.306304 1.464499 1.760145 2.896797
 ```
 
 ```r
@@ -1054,22 +1088,37 @@ Diag(coef(REM1.cfa, select="random"))
 ```
 
 ```
-##            [,1]       [,2]       [,3]       [,4]       [,5]       [,6]
-## [1,] 0.01665114 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000
-## [2,] 0.00000000 0.01677897 0.00000000 0.00000000 0.00000000 0.00000000
-## [3,] 0.00000000 0.00000000 0.01943522 0.00000000 0.00000000 0.00000000
-## [4,] 0.00000000 0.00000000 0.00000000 0.01593041 0.00000000 0.00000000
-## [5,] 0.00000000 0.00000000 0.00000000 0.00000000 0.01656968 0.00000000
-## [6,] 0.00000000 0.00000000 0.00000000 0.00000000 0.00000000 0.02532601
+##          [,1]    [,2]    [,3]      [,4]     [,5]     [,6]      [,7]
+##  [1,] 4.83652 0.00000 0.00000 0.0000000 0.000000 0.000000 0.0000000
+##  [2,] 0.00000 1.24877 0.00000 0.0000000 0.000000 0.000000 0.0000000
+##  [3,] 0.00000 0.00000 1.11366 0.0000000 0.000000 0.000000 0.0000000
+##  [4,] 0.00000 0.00000 0.00000 0.9611868 0.000000 0.000000 0.0000000
+##  [5,] 0.00000 0.00000 0.00000 0.0000000 4.996338 0.000000 0.0000000
+##  [6,] 0.00000 0.00000 0.00000 0.0000000 0.000000 1.502021 0.0000000
+##  [7,] 0.00000 0.00000 0.00000 0.0000000 0.000000 0.000000 0.8871691
+##  [8,] 0.00000 0.00000 0.00000 0.0000000 0.000000 0.000000 0.0000000
+##  [9,] 0.00000 0.00000 0.00000 0.0000000 0.000000 0.000000 0.0000000
+## [10,] 0.00000 0.00000 0.00000 0.0000000 0.000000 0.000000 0.0000000
+##          [,8]     [,9]    [,10]
+##  [1,] 0.00000 0.000000 0.000000
+##  [2,] 0.00000 0.000000 0.000000
+##  [3,] 0.00000 0.000000 0.000000
+##  [4,] 0.00000 0.000000 0.000000
+##  [5,] 0.00000 0.000000 0.000000
+##  [6,] 0.00000 0.000000 0.000000
+##  [7,] 0.00000 0.000000 0.000000
+##  [8,] 4.59672 0.000000 0.000000
+##  [9,] 0.00000 1.517366 0.000000
+## [10,] 0.00000 0.000000 3.710587
 ```
 
 ```r
 ## Setup a one-factor CFA model
 cfa.model <- "Fraud =~ F114 + F115 + F116 + F117"
-plot(cfa.model)
+plot(cfa.model, col="yellow")
 ```
 
-![](WVSDemo_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](WVSDemo_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 ```r
 ## Convert it into RAM formulation
@@ -1130,45 +1179,57 @@ summary(REM2.cfa)
 ## 
 ## 95% confidence intervals: z statistic approximation
 ## Coefficients:
-##              Estimate Std.Error    lbound    ubound z value  Pr(>|z|)    
-## F114ONFraud 0.5641879 0.0090229 0.5465033 0.5818725  62.528 < 2.2e-16 ***
-## F115ONFraud 0.6796537 0.0098486 0.6603508 0.6989566  69.010 < 2.2e-16 ***
-## F116ONFraud 0.7204110 0.0104955 0.6998403 0.7409818  68.640 < 2.2e-16 ***
-## F117ONFraud 0.6071324 0.0097005 0.5881198 0.6261450  62.588 < 2.2e-16 ***
+##              Estimate Std.Error   lbound   ubound z value  Pr(>|z|)    
+## F114ONFraud  1.302500  0.035851 1.232233 1.372767  36.331 < 2.2e-16 ***
+## F115ONFraud  1.561492  0.041232 1.480679 1.642306  37.871 < 2.2e-16 ***
+## F116ONFraud  1.486635  0.041112 1.406058 1.567213  36.161 < 2.2e-16 ***
+## F117ONFraud  1.017748  0.031433 0.956141 1.079356  32.378 < 2.2e-16 ***
+## F114WITHF114 3.612561  0.175832 3.267937 3.957186  20.546 < 2.2e-16 ***
+## F115WITHF115 2.668157  0.198053 2.279979 3.056334  13.472 < 2.2e-16 ***
+## F116WITHF116 2.215495  0.189210 1.844651 2.586340  11.709 < 2.2e-16 ***
+## F117WITHF117 1.860269  0.145383 1.575324 2.145214  12.796 < 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
 ## Goodness-of-fit indices:
 ##                                                 Value
-## Sample size                                77950.0000
-## Chi-square of target model                    78.1819
+## Sample size                                76839.0000
+## Chi-square of target model                    19.6796
 ## DF of target model                             2.0000
-## p value of target model                        0.0000
+## p value of target model                        0.0001
 ## Number of constraints imposed on "Smatrix"     0.0000
 ## DF manually adjusted                           0.0000
-## Chi-square of independence model            9838.7579
+## Chi-square of independence model            2970.0387
 ## DF of independence model                       6.0000
-## RMSEA                                          0.0221
-## RMSEA lower 95% CI                             0.0181
-## RMSEA upper 95% CI                             0.0264
-## SRMR                                           0.0351
-## TLI                                            0.9768
-## CFI                                            0.9923
-## AIC                                           74.1819
-## BIC                                           55.6543
+## RMSEA                                          0.0107
+## RMSEA lower 95% CI                             0.0067
+## RMSEA upper 95% CI                             0.0153
+## SRMR                                           0.0273
+## TLI                                            0.9821
+## CFI                                            0.9940
+## AIC                                           15.6796
+## BIC                                           -2.8194
 ## OpenMx status1: 0 ("0" or "1": The optimization is considered fine.
 ## Other values indicate problems.)
 ```
 
 ```r
-plot(REM2.cfa, manNames=c("F114","F115","F116","F117"), latNames="Fraud",
-     color="yellow")
+## Plot the unstandardized solutions
+plot(REM2.cfa, color="yellow")
 ```
 
-![](WVSDemo_files/figure-html/unnamed-chunk-15-2.png)<!-- -->
+![](WVSDemo_files/figure-html/unnamed-chunk-14-2.png)<!-- -->
+
+```r
+## Plot the standardized solutions
+plot(REM2.cfa, color="green", what="stand")
+```
+
+![](WVSDemo_files/figure-html/unnamed-chunk-14-3.png)<!-- -->
 
 
 # Reliability analysis
+* Formula for coefficient alpha: $\alpha=\frac{q}{q-1}(1-\frac{\sum{Var(x_i)}}{Var(X_{Total})})$, where $q$ is the no. of items, $Var(x_i)$ is the variance of $i$th item, and $Var(X_{Total})$ is the variance of the total score.
 * The coefficient alpha and its sampling variance are estimated in each `Wave` and `Country`.
 * Random- and mixed-effects meta-analyses are tested.
 
@@ -1177,13 +1238,12 @@ plot(REM2.cfa, manNames=c("F114","F115","F116","F117"), latNames="Fraud",
 ## y: estimated coefficient alpha
 ## v: sampling variance of coefficient alpha
 fun.rel <- function(dt) { my.dt <- dt[, c("F114", "F115", "F116", "F117")]
-                          Cov <- try(cov(my.dt,
-                                         use="pairwise.complete.obs"), silent=TRUE)
-                          na.n <- t(!is.na(my.dt)) %*% !is.na(my.dt)
-                          pairwise.n <- na.n[lower.tri(na.n, diag=TRUE)]
-                          pairwise.n[pairwise.n==0] <- NA
-                          ## harmonic mean
-                          n <- as.integer(1/mean(1/pairwise.n, na.rm=TRUE))
+                          ## Calculate the covariance matrix based on the complete data
+                          Cov <- try(suppressWarnings(cov(my.dt, use="complete.obs")), 
+                                     silent=TRUE)
+
+                          ## Calculate the sample sizes based on the complete cases
+                          n <- length(complete.cases(my.dt))
 
                           if (is.element("try-error", class(Cov))) {
                             c(y=NA,v=NA)
@@ -1216,19 +1276,56 @@ head(REM1.rel)
 
 ```
 ##   S002         y            v
-## 1    0 0.6596339 0.0014924196
-## 2    0 0.7949916 0.0003748355
-## 3    0 0.6710947 0.0011679209
+## 1    0 0.6597875 0.0012395666
+## 2    0 0.7945834 0.0003689265
+## 3    0 0.6699123 0.0011668853
 ## 4    0        NA           NA
-## 5    0 0.6574712 0.0011502544
-## 6    0 0.7156615 0.0009497608
+## 5    0 0.6526089 0.0010763041
+## 6    0 0.7232110 0.0008512464
+```
+
+```r
+########## Meta-analyze results with a random-effects meta-analysis
+REM2.rel <- meta(y=y, v=v, data=REM1.rel,
+                 model.name="Reliability generalization REM")
+summary(REM2.rel)
+```
+
+```
+## 
+## Call:
+## meta(y = y, v = v, data = REM1.rel, model.name = "Reliability generalization REM")
+## 
+## 95% confidence intervals: z statistic approximation
+## Coefficients:
+##             Estimate Std.Error    lbound    ubound z value  Pr(>|z|)    
+## Intercept1 0.7092997 0.0072432 0.6951034 0.7234961 97.9266 < 2.2e-16 ***
+## Tau2_1_1   0.0104820 0.0011320 0.0082633 0.0127006  9.2598 < 2.2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Q statistic on the homogeneity of effect sizes: 7140.286
+## Degrees of freedom of the Q statistic: 216
+## P value of the Q statistic: 0
+## 
+## Heterogeneity indices (based on the estimated Tau2):
+##                              Estimate
+## Intercept1: I2 (Q statistic)   0.9686
+## 
+## Number of studies (or clusters): 238
+## Number of observed statistics: 217
+## Number of estimated parameters: 2
+## Degrees of freedom: 215
+## -2 log likelihood: -344.7674 
+## OpenMx status1: 0 ("0" or "1": The optimization is considered fine.
+## Other values may indicate problems.)
 ```
 
 ```r
 ########## Meta-analyze results with a random-effects meta-analysis by using "Wave"" as a predictor
-REM2.rel <- meta(y=y, v=v, x=S002, data=REM1.rel,
+REM3.rel <- meta(y=y, v=v, x=S002, data=REM1.rel,
                  model.name="Reliability generalization REM")
-summary(REM2.rel)
+summary(REM3.rel)
 ```
 
 ```
@@ -1239,27 +1336,27 @@ summary(REM2.rel)
 ## 95% confidence intervals: z statistic approximation
 ## Coefficients:
 ##             Estimate Std.Error    lbound    ubound z value  Pr(>|z|)    
-## Intercept1 0.6409080 0.0182050 0.6052267 0.6765892 35.2050 < 2.2e-16 ***
-## Slope1_1   0.0199950 0.0050088 0.0101780 0.0298120  3.9920 6.552e-05 ***
-## Tau2_1_1   0.0098049 0.0010705 0.0077068 0.0119029  9.1594 < 2.2e-16 ***
+## Intercept1 0.6441791 0.0180729 0.6087568 0.6796013 35.6434 < 2.2e-16 ***
+## Slope1_1   0.0195647 0.0049744 0.0098150 0.0293144  3.9330 8.388e-05 ***
+## Tau2_1_1   0.0097056 0.0010558 0.0076362 0.0117749  9.1926 < 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Q statistic on the homogeneity of effect sizes: 6818.875
+## Q statistic on the homogeneity of effect sizes: 7140.286
 ## Degrees of freedom of the Q statistic: 216
 ## P value of the Q statistic: 0
 ## 
 ## Explained variances (R2):
 ##                            y1
-## Tau2 (no predictor)    0.0106
-## Tau2 (with predictors) 0.0098
-## R2                     0.0766
+## Tau2 (no predictor)    0.0105
+## Tau2 (with predictors) 0.0097
+## R2                     0.0741
 ## 
 ## Number of studies (or clusters): 238
 ## Number of observed statistics: 217
 ## Number of estimated parameters: 3
 ## Degrees of freedom: 214
-## -2 log likelihood: -356.7987 
+## -2 log likelihood: -359.7219 
 ## OpenMx status1: 0 ("0" or "1": The optimization is considered fine.
 ## Other values may indicate problems.)
 ```
@@ -1291,44 +1388,44 @@ sessionInfo()
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] bindrcpp_0.2.2 dplyr_0.7.5    lavaan_0.6-1   semPlot_1.1   
-## [5] metaSEM_1.1.1  OpenMx_2.9.9  
+## [1] bindrcpp_0.2.2 dplyr_0.7.5    metaSEM_1.1.1  OpenMx_2.9.9  
+## [5] lavaan_0.6-1  
 ## 
 ## loaded via a namespace (and not attached):
-##   [1] minqa_1.2.4          colorspace_1.3-2     rjson_0.2.19        
-##   [4] rio_0.5.10           rprojroot_1.3-2      htmlTable_1.12      
-##   [7] corpcor_1.6.9        base64enc_0.1-3      rstudioapi_0.7      
-##  [10] mvtnorm_1.0-7        splines_3.4.4        mnormt_1.5-5        
-##  [13] knitr_1.20           glasso_1.8           Formula_1.2-3       
-##  [16] nloptr_1.0.4         cluster_2.0.7-1      png_0.1-7           
-##  [19] compiler_3.4.4       backports_1.1.2      assertthat_0.2.0    
-##  [22] Matrix_1.2-14        lazyeval_0.2.1       cli_1.0.0           
-##  [25] acepack_1.4.1        htmltools_0.3.6      tools_3.4.4         
-##  [28] igraph_1.2.1         coda_0.19-1          gtable_0.2.0        
-##  [31] glue_1.2.0           reshape2_1.4.3       Rcpp_0.12.17        
-##  [34] carData_3.0-1        cellranger_1.1.0     statnet.common_4.0.0
-##  [37] nlme_3.1-137         lisrelToR_0.1.4      psych_1.8.4         
-##  [40] stringr_1.3.1        network_1.13.0.1     openxlsx_4.1.0      
-##  [43] lme4_1.1-17          ggm_2.3              semTools_0.4-14     
-##  [46] gtools_3.5.0         XML_3.98-1.11        MASS_7.3-50         
-##  [49] scales_0.5.0         BDgraph_2.50         parallel_3.4.4      
-##  [52] huge_1.2.7           RColorBrewer_1.1-2   yaml_2.1.19         
-##  [55] curl_3.2             pbapply_1.3-4        gridExtra_2.3       
-##  [58] ggplot2_2.2.1        rpart_4.1-13         latticeExtra_0.6-28 
-##  [61] stringi_1.2.2        sem_3.1-9            checkmate_1.8.5     
-##  [64] boot_1.3-20          zip_1.0.0            rlang_0.2.0         
-##  [67] pkgconfig_2.0.1      d3Network_0.5.2.1    arm_1.10-1          
-##  [70] evaluate_0.10.1      lattice_0.20-35      purrr_0.2.5         
-##  [73] bindr_0.1.1          htmlwidgets_1.2      tidyselect_0.2.4    
-##  [76] plyr_1.8.4           magrittr_1.5         R6_2.2.2            
-##  [79] Hmisc_4.1-1          sna_2.4              pillar_1.2.3        
-##  [82] haven_1.1.1          whisker_0.3-2        foreign_0.8-70      
-##  [85] rockchalk_1.8.111    survival_2.42-3      abind_1.4-5         
-##  [88] nnet_7.3-12          tibble_1.4.2         crayon_1.3.4        
-##  [91] car_3.0-0            fdrtool_1.2.15       utf8_1.1.4          
-##  [94] ellipse_0.4.1        rmarkdown_1.9        jpeg_0.1-8          
-##  [97] grid_3.4.4           readxl_1.1.0         qgraph_1.5          
-## [100] data.table_1.11.4    pbivnorm_0.6.0       forcats_0.3.0       
-## [103] matrixcalc_1.0-3     digest_0.6.15        mi_1.0              
-## [106] stats4_3.4.4         munsell_0.4.3
+##   [1] nlme_3.1-137         RColorBrewer_1.1-2   rprojroot_1.3-2     
+##   [4] mi_1.0               tools_3.4.4          backports_1.1.2     
+##   [7] utf8_1.1.4           R6_2.2.2             d3Network_0.5.2.1   
+##  [10] rpart_4.1-13         Hmisc_4.1-1          lazyeval_0.2.1      
+##  [13] colorspace_1.3-2     nnet_7.3-12          tidyselect_0.2.4    
+##  [16] gridExtra_2.3        mnormt_1.5-5         curl_3.2            
+##  [19] compiler_3.4.4       qgraph_1.5           fdrtool_1.2.15      
+##  [22] cli_1.0.0            htmlTable_1.12       network_1.13.0.1    
+##  [25] scales_0.5.0         checkmate_1.8.5      mvtnorm_1.0-7       
+##  [28] psych_1.8.4          pbapply_1.3-4        sem_3.1-9           
+##  [31] stringr_1.3.1        digest_0.6.15        pbivnorm_0.6.0      
+##  [34] foreign_0.8-70       minqa_1.2.4          rmarkdown_1.9       
+##  [37] rio_0.5.10           base64enc_0.1-3      jpeg_0.1-8          
+##  [40] pkgconfig_2.0.1      htmltools_0.3.6      lme4_1.1-17         
+##  [43] lisrelToR_0.1.4      htmlwidgets_1.2      rlang_0.2.0         
+##  [46] readxl_1.1.0         rstudioapi_0.7       huge_1.2.7          
+##  [49] bindr_0.1.1          gtools_3.5.0         statnet.common_4.0.0
+##  [52] acepack_1.4.1        zip_1.0.0            car_3.0-0           
+##  [55] magrittr_1.5         Formula_1.2-3        Matrix_1.2-14       
+##  [58] Rcpp_0.12.17         munsell_0.4.3        abind_1.4-5         
+##  [61] rockchalk_1.8.111    whisker_0.3-2        stringi_1.2.2       
+##  [64] yaml_2.1.19          carData_3.0-1        MASS_7.3-50         
+##  [67] plyr_1.8.4           matrixcalc_1.0-3     grid_3.4.4          
+##  [70] parallel_3.4.4       crayon_1.3.4         forcats_0.3.0       
+##  [73] lattice_0.20-35      semPlot_1.1          haven_1.1.1         
+##  [76] splines_3.4.4        sna_2.4              knitr_1.20          
+##  [79] pillar_1.2.3         igraph_1.2.1         rjson_0.2.19        
+##  [82] boot_1.3-20          corpcor_1.6.9        BDgraph_2.50        
+##  [85] reshape2_1.4.3       stats4_3.4.4         glue_1.2.0          
+##  [88] XML_3.98-1.11        evaluate_0.10.1      latticeExtra_0.6-28 
+##  [91] data.table_1.11.4    png_0.1-7            nloptr_1.0.4        
+##  [94] cellranger_1.1.0     purrr_0.2.5          gtable_0.2.0        
+##  [97] assertthat_0.2.0     ggplot2_2.2.1        openxlsx_4.1.0      
+## [100] semTools_0.4-14      coda_0.19-1          survival_2.42-3     
+## [103] glasso_1.8           tibble_1.4.2         arm_1.10-1          
+## [106] ggm_2.3              ellipse_0.4.1        cluster_2.0.7-1
 ```

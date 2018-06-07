@@ -1,7 +1,7 @@
 ---
 title: "Demonstration of Analyzing Airlines data in R"
 author: "Mike Cheung"
-date: 'June 07, 2018'
+date: "June 9 2018"
 output:
   html_document:
     keep_md: yes
@@ -15,13 +15,19 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Why not analyzing *all* raw data?
+* The data sets are too huge for the RAM.
+* Besides holding the data, lots of RAM are required for the analyses.
+* It takes a long time to analyze all data.
+* [John Tukey](https://en.wikiquote.org/wiki/John_Tukey): *An approximate answer to the right question is worth a great deal more than a precise answer to the wrong question.*
+
 # Review of the Split/Analyze/Meta-analyze (SAM) Approach
-* Computer sciences: MapReduce, Apache Hadoop, divide and conquer approach
-* R: Split-analyze-apply^[Wickham, H. (2011). The split-apply-combine strategy for data analysis. *Journal of Statistical Software*, *40*(1), 1–29.], ^[Matloff, N. (2016). Software Alchemy: Turning complex statistical computations into embarrassingly-parallel ones. *Journal of Statistical Software*, *71*(4), 1–15.]
+* *Standard* approach to handle Big Data: MapReduce, Apache Hadoop, divide and conquer approach^[Chen, X., & Xie, M. (2014). A split-and-conquer approach for analysis of extraordinarily large data. *Statistica Sinica*, *24*(4), 1655–1684. https://doi.org/10.5705/ss.2013.088], ^[Matloff, N. (2016). Software Alchemy: Turning complex statistical computations into embarrassingly-parallel ones. *Journal of Statistical Software*, *71*(4), 1–15.]
+* R: Split-analyze-apply^[Wickham, H. (2011). The split-apply-combine strategy for data analysis. *Journal of Statistical Software*, *40*(1), 1–29.]
 * Limitations:
     + These approaches focus on simple tasks;
     + They are not meant to handle complex statistical modelings such as path models and structural equation modeling.
-* The SAM approach generalizes this framework by using **meta-analysis** in the last step;
+* The SAM approach extends this framework by using **meta-analysis** in the last step;
 * Advantages:
     + Conventional multivariate techniques can be applied to big data.
     + Researchers can analyze big data from a theory testing approach.
@@ -54,26 +60,96 @@ editor_options:
     + $T^2$ is the heterogeneity variance of the random effects.
 * The fixed-effects model is a special case when $T^2=0$.
 
-
-# Data preparation
-* Before running the analyses, we need to install some `R` packages. The analyses should run fine in computer systems with at least 8GB RAM.
-
-
-
 ## Preparing the datasets
 * The datasets include more than 123 million records on 29 variables.
 * The datasets are available at http://stat-computing.org/dataexpo/2009/the-data.html.
 * The following R code is used to download the compressed files and uncompress them in the local hard disk.
 * The compressed data sets are 1.7 GB in size, while the uncompressed files are 12 GB in size.
-* Please make sure that there is enough space to store the files. Moreover, it may take a long time to download the files and uncompress them.
-* Please **don't** download the files during this workshop. It may take a very long time due to the network traffic.
-* For the sake of time, we have already downloaded the data. Moreover, we will only use 1% of the data in the illustrations.
+* Please make sure that there is enough space to store the files in your computer. Moreover, it may take a long time to download the files and uncompress them. Therefore, please **DON'T** download the files during this workshop. It will take forever to finish it.
+* For the sake of time, I have already downloaded the data. Moreover, we will only use 1% of the data in the illustrations.
 
 ```r
 ## Don't run the code in the workshop!
 
 library(R.utils)
+```
+
+```
+## Loading required package: R.oo
+```
+
+```
+## Loading required package: R.methodsS3
+```
+
+```
+## R.methodsS3 v1.7.1 (2016-02-15) successfully loaded. See ?R.methodsS3 for help.
+```
+
+```
+## R.oo v1.22.0 (2018-04-21) successfully loaded. See ?R.oo for help.
+```
+
+```
+## 
+## Attaching package: 'R.oo'
+```
+
+```
+## The following objects are masked from 'package:methods':
+## 
+##     getClasses, getMethods
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     attach, detach, gc, load, save
+```
+
+```
+## R.utils v2.6.0 (2017-11-04) successfully loaded. See ?R.utils for help.
+```
+
+```
+## 
+## Attaching package: 'R.utils'
+```
+
+```
+## The following object is masked from 'package:utils':
+## 
+##     timestamp
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     cat, commandArgs, getOption, inherits, isOpen, parse, warnings
+```
+
+```r
 library(dplyr)
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 library(readr)
 
 ## Years of the data
@@ -84,13 +160,32 @@ file.names <- paste0(years, ".csv.bz2")
 
 ## Show the first few items
 head(file.names)
+```
 
+```
+## [1] "1987.csv.bz2" "1988.csv.bz2" "1989.csv.bz2" "1990.csv.bz2"
+## [5] "1991.csv.bz2" "1992.csv.bz2"
+```
+
+```r
 ## Create http addresses for download
 http.names <- paste0("http://stat-computing.org/dataexpo/2009/", file.names)
 
 ## Show the first few items
 head(http.names)
+```
 
+```
+## [1] "http://stat-computing.org/dataexpo/2009/1987.csv.bz2"
+## [2] "http://stat-computing.org/dataexpo/2009/1988.csv.bz2"
+## [3] "http://stat-computing.org/dataexpo/2009/1989.csv.bz2"
+## [4] "http://stat-computing.org/dataexpo/2009/1990.csv.bz2"
+## [5] "http://stat-computing.org/dataexpo/2009/1991.csv.bz2"
+## [6] "http://stat-computing.org/dataexpo/2009/1992.csv.bz2"
+```
+
+
+```r
 ## Download the files
 ## This may take a while depending on the internet connectivity.
 for (i in seq_along(http.names)) {
@@ -117,6 +212,7 @@ size <- 0.01
 my.list <- list.files(pattern = "*.csv$")
 Airlines <- list()
 
+## Read the CSV files
 for (i in seq_along(my.list)) {
   Airlines[[i]] <- read_csv(my.list[i]) %>% group_by(Month) %>% 
                    sample_frac(size=size) %>%
@@ -128,7 +224,7 @@ for (i in seq_along(my.list)) {
 ## Combine all data sets into a data.frame
 Airlines <- bind_rows(Airlines)
 
-## Save it for this workshop
+## Save the data for this workshop
 save(Airlines, file="AirlinesDemo.RData")
 ```
 
@@ -137,6 +233,7 @@ save(Airlines, file="AirlinesDemo.RData")
 
 ## Read the database into R
 * One percent of the data are saved in `AirlinesDemo.RData`. We may load this dataset in this workshop.
+* When the dataset is too large, we may average them over some meaningful variables and display the averages.
 * We summarize the means of the arrival delay, departure delay, and distance between airports per year and month.
 
 
@@ -145,26 +242,7 @@ save(Airlines, file="AirlinesDemo.RData")
 load("AirlinesDemo.RData")
 
 library(dplyr)
-```
 
-```
-## 
-## Attaching package: 'dplyr'
-```
-
-```
-## The following objects are masked from 'package:stats':
-## 
-##     filter, lag
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union
-```
-
-```r
 ## Calculate the means of ArrDelay, DepDelay, and total no. of flights
 ## grouped by year and month
 my.summary <- Airlines %>% group_by(Year, Month) %>% 
@@ -175,7 +253,7 @@ my.summary <- Airlines %>% group_by(Year, Month) %>%
                         flights=n())
 
 ## Sort it by Year and Month
-my.summary <- my.summary %>% arrange(Year, as.numeric(Month))
+my.summary <- my.summary %>% arrange(Year, Month)
 my.summary
 ```
 
@@ -208,12 +286,15 @@ x <- 1:nrow(my.summary)
 plot(x, my.summary$flights, type="l", xaxt="n",
      xlab="Year", ylab="Numbers of flights per month",
      main="Numbers of flights (0.1% of the data) per month by years (1987-2008)")
+## Draw the dashed lines on Jan and add the last line at "256"
 abline(v=c(x[my.summary$Month=="1"],256), lty=2)
+## Draw the 911 attacks
 abline(v=168, lwd=3, col="red")
+## Add the "year" on Jun
 axis(1, at=c(-3, x[my.summary$Month=="6"]), labels=1987:2008)
 ```
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
 ```r
 ## Plot the delay time
@@ -241,7 +322,7 @@ abline(h=0, lty=2)
 axis(1, at=c(-3, x[my.summary$Month=="6"]), labels=1987:2008)
 ```
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-2-2.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-3-2.png)<!-- -->
 
 ```r
 ## Plot the scatter plot
@@ -272,10 +353,10 @@ pairs(my.summary[, c("arr_delay", "dep_delay", "distance", "flights")],
       diag.panel = panel.hist)
 ```
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-2-3.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-3-3.png)<!-- -->
 
 ## Ecological analysis
-* One simple approach to handle large datasets is to use ecological analysis on the agregated means.
+* One simple approach to handle large data sets is to use ecological analysis on the agregated means.
 * However, it is important to note that results based on ecological analysis can be very different from those based on the raw data.
 * We should not interpret results of the ecological analysis at the individual level; otherwise, we will commit an *ecological fallacy*.
 
@@ -312,14 +393,13 @@ summary( lm(arr_delay~dep_delay+I(distance/1000), data=my.summary) )
 * We regress `ArrDelay` on `DepDelay` and `Distance` on each year.
 * The following figure displays the regression model.
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 * When preparing the function for the analysis, please make sure that it handles potential errors in each analysis.
 
 ```r
 ## Load the library for meta-analysis
 library(metaSEM)
-
 
 ## No. of cores in my old notebook
 parallel::detectCores()
@@ -342,7 +422,7 @@ fun.reg <- function(dt) {
            ## Run the analysis and capture the error
            fit <- try(lm(ArrDelay~DepDelay+I(Distance/1000), data=dt), silent=TRUE)
 
-           ## If it is error, returns NA
+           ## If it is an error, returns NA
            if (is.element("try-error", class(fit))) {
                c(y1=NA, y2=NA, v11=NA, v21=NA, v22=NA)
               } else {
@@ -350,6 +430,7 @@ fun.reg <- function(dt) {
                ## Remove the additional names 
                y <- unname(coef(fit))
                ## sampling variance-covariance matrix excluding the intercept
+               ## vech() takes the lower triangle matrix including the diagonals
                v <- vech(vcov(fit)[-1, -1])
                c(y1=y[2], y2=y[3], v11=v[1], v21=v[2], v22=v[3])
               }
@@ -367,11 +448,65 @@ set.seed(569840)
 no.of.group <- 100
 
 Airlines$Group <- sample(1:nrow(Airlines)) %% no.of.group + 1
-# table(Airlines$Group)
 
+## Display the frequency table
+table(Airlines$Group)
+```
+
+```
+## 
+##     1     2     3     4     5     6     7     8     9    10    11    12 
+## 12353 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 
+##    13    14    15    16    17    18    19    20    21    22    23    24 
+## 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 
+##    25    26    27    28    29    30    31    32    33    34    35    36 
+## 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 
+##    37    38    39    40    41    42    43    44    45    46    47    48 
+## 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 12354 
+##    49    50    51    52    53    54    55    56    57    58    59    60 
+## 12354 12354 12354 12354 12354 12354 12354 12353 12353 12353 12353 12353 
+##    61    62    63    64    65    66    67    68    69    70    71    72 
+## 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 
+##    73    74    75    76    77    78    79    80    81    82    83    84 
+## 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 
+##    85    86    87    88    89    90    91    92    93    94    95    96 
+## 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 12353 
+##    97    98    99   100 
+## 12353 12353 12353 12353
+```
+
+```r
 ## Run the analysis by Group and save the results in "meta.df0"
 meta.df0 <- Airlines %>% group_by(Group) %>% do(mod=fun.reg(.))
 
+## Group: 1 to 100
+## mod: y1, y2, v11, v21, and v22
+meta.df0
+```
+
+```
+## Source: local data frame [100 x 2]
+## Groups: <by row>
+## 
+## # A tibble: 100 x 2
+##    Group mod      
+##  * <dbl> <list>   
+##  1     1 <dbl [5]>
+##  2     2 <dbl [5]>
+##  3     3 <dbl [5]>
+##  4     4 <dbl [5]>
+##  5     5 <dbl [5]>
+##  6     6 <dbl [5]>
+##  7     7 <dbl [5]>
+##  8     8 <dbl [5]>
+##  9     9 <dbl [5]>
+## 10    10 <dbl [5]>
+## # ... with 90 more rows
+```
+
+```r
+## It is easier to work with a matrix or data frame.
+## Let's convert it into a matrix
 ## Extract the results from "mod" and convert them into a matrix
 meta.df0 <- t(apply(meta.df0, 1, function(x) x$mod))
 head(meta.df0)
@@ -489,7 +624,6 @@ meta.df1 <- data.frame(Year=NA,y1=NA,y2=NA,v11=NA,v21=NA,v22=NA)
 ## Years for the analyses
 Year <- unique(Airlines$Year)
 
-## It took about 9 minutes on our computer
 for (i in seq_along(Year)){
     ## Fit regression model and store results
     meta.df1[i, ] <- c(Year[i], fun.reg(Airlines[Airlines$Year==Year[i], ]))
@@ -582,7 +716,7 @@ plot(REM.reg, axis.labels=c("Regression coefficient DepDelay",
      ylim=c(-2.5,0.7), xlim=c(0.65,1.2), study.min.cex = 0.6)
 ```
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 ```r
 ## Mixed effects meta-analysis with the year as a moderator
@@ -640,7 +774,7 @@ summary(REM.reg_mod)
 ```
 
 # Mixed-effects model
-* A mixed-effects model is fitted to account for the nested structure of the data. The seasonal variation is approximately accounted for by considering the data nested within *Month*, *Day of Month*, *Day Of Week*, while geographical differences is approximately accounted for by considering the data nested within *origin* and *destination* airports.
+* A mixed-effects model is fitted to account for the nested structure of the data. The seasonal variation is approximately accounted for by considering the data nested in *Month*, *Day of Month*, *Day Of Week*, while geographical differences is approximately accounted for by considering the data cross-classified in *origin* and *destination* airports.
 
 ## Read and process data from the database
 * Since it takes some time to process large data, the database has been stored as an R object.
@@ -701,9 +835,9 @@ head(meta.df2)
 ## Meta-analyze results by using a random-effects meta-analysis
 ## y1: regression coefficient of DepDelay
 ## y2: regression coefficient of Distance/1000
-meta.rem <- meta(y=cbind(y1,y2), v=cbind(v11,v21,v22), data=meta.df2,
+REM.lmer <- meta(y=cbind(y1,y2), v=cbind(v11,v21,v22), data=meta.df2,
                  model.name="Random effects model")
-summary(meta.rem)
+summary(REM.lmer)
 ```
 
 ```
@@ -749,7 +883,7 @@ summary(meta.rem)
 
 ```r
 ## Variance component of the random effects
-VarComp.lmer <- vec2symMat(coef(meta.rem, select="random"))
+VarComp.lmer <- vec2symMat(coef(REM.lmer, select="random"))
 VarComp.lmer
 ```
 
@@ -771,12 +905,12 @@ cov2cor(VarComp.lmer)
 ```
 
 ```r
-plot(meta.rem, axis.labels=c("Regression coefficient on DepDelay",
+plot(REM.lmer, axis.labels=c("Regression coefficient on DepDelay",
                              "Regression coefficient on Distance"),
      ylim=c(-2.5,0.7), xlim=c(0.65,1.2), study.min.cex = 0.6)
 ```
 
-![](AirlinesDemo_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](AirlinesDemo_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ## Conducting a multivariate mixed-effects meta-analysis
 * A multivariate mixed-effects meta-analysis is conducted by using `Year` as the moderator.
@@ -837,7 +971,38 @@ summary(meta.mem)
 ## Other values may indicate problems.)
 ```
 
+# A comparison
+* Are the results very different among the random split, stratified split (by year), and stratified split (by year) with lmer?
+    
 
+```r
+## Parameter estimates
+cbind(`Random`=coef(FEM.reg), 
+      `Stratified (by year)`=coef(REM.reg, select="fixed"),
+      `Stratified with lmer`=coef(REM.lmer, select = "fixed"))
+```
+
+```
+##                Random Stratified (by year) Stratified with lmer
+## Intercept1  0.9712921            0.9254973            0.9219572
+## Intercept2 -1.0524911           -0.8373576           -1.0283600
+```
+
+```r
+## Function to get the SE
+SE <- function(x) sqrt(diag(vcov(x, select="fixed")))
+
+## Standard errors
+cbind(`Random`=SE(FEM.reg), 
+      `Stratified (by year)`=SE(REM.reg),
+      `Stratified with lmer`=SE(REM.lmer))
+```
+
+```
+##                  Random Stratified (by year) Stratified with lmer
+## Intercept1 0.0004610976            0.0221737           0.02233778
+## Intercept2 0.0232805194            0.1207914           0.10509258
+```
 
 # Settings of the R system
 
@@ -866,44 +1031,45 @@ sessionInfo()
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] metaSEM_1.1.1  OpenMx_2.9.9   bindrcpp_0.2.2 dplyr_0.7.5   
+## [1] metaSEM_1.1.1     OpenMx_2.9.9      bindrcpp_0.2.2    readr_1.1.1      
+## [5] dplyr_0.7.5       R.utils_2.6.0     R.oo_1.22.0       R.methodsS3_1.7.1
 ## 
 ## loaded via a namespace (and not attached):
-##   [1] nlme_3.1-137         RColorBrewer_1.1-2   rprojroot_1.3-2     
-##   [4] mi_1.0               tools_3.4.4          backports_1.1.2     
-##   [7] utf8_1.1.4           R6_2.2.2             d3Network_0.5.2.1   
-##  [10] rpart_4.1-13         Hmisc_4.1-1          lazyeval_0.2.1      
-##  [13] colorspace_1.3-2     nnet_7.3-12          tidyselect_0.2.4    
-##  [16] gridExtra_2.3        mnormt_1.5-5         curl_3.2            
-##  [19] compiler_3.4.4       fdrtool_1.2.15       qgraph_1.5          
-##  [22] cli_1.0.0            htmlTable_1.12       network_1.13.0.1    
-##  [25] scales_0.5.0         checkmate_1.8.5      mvtnorm_1.0-7       
-##  [28] psych_1.8.4          pbapply_1.3-4        sem_3.1-9           
-##  [31] stringr_1.3.1        digest_0.6.15        pbivnorm_0.6.0      
-##  [34] foreign_0.8-70       minqa_1.2.4          rmarkdown_1.9       
-##  [37] rio_0.5.10           base64enc_0.1-3      jpeg_0.1-8          
-##  [40] pkgconfig_2.0.1      htmltools_0.3.6      lme4_1.1-17         
-##  [43] lisrelToR_0.1.4      htmlwidgets_1.2      rlang_0.2.0         
-##  [46] readxl_1.1.0         huge_1.2.7           rstudioapi_0.7      
-##  [49] bindr_0.1.1          gtools_3.5.0         statnet.common_4.0.0
-##  [52] acepack_1.4.1        zip_1.0.0            car_3.0-0           
-##  [55] magrittr_1.5         Formula_1.2-3        Matrix_1.2-14       
-##  [58] Rcpp_0.12.17         munsell_0.4.3        abind_1.4-5         
-##  [61] rockchalk_1.8.111    whisker_0.3-2        stringi_1.2.2       
-##  [64] yaml_2.1.19          carData_3.0-1        MASS_7.3-50         
-##  [67] plyr_1.8.4           matrixcalc_1.0-3     lavaan_0.6-1        
-##  [70] grid_3.4.4           parallel_3.4.4       forcats_0.3.0       
-##  [73] crayon_1.3.4         lattice_0.20-35      semPlot_1.1         
-##  [76] haven_1.1.1          splines_3.4.4        sna_2.4             
-##  [79] knitr_1.20           pillar_1.2.3         igraph_1.2.1        
-##  [82] rjson_0.2.19         boot_1.3-20          corpcor_1.6.9       
-##  [85] BDgraph_2.50         reshape2_1.4.3       stats4_3.4.4        
-##  [88] XML_3.98-1.11        glue_1.2.0           evaluate_0.10.1     
-##  [91] latticeExtra_0.6-28  data.table_1.11.4    png_0.1-7           
-##  [94] nloptr_1.0.4         cellranger_1.1.0     gtable_0.2.0        
-##  [97] purrr_0.2.5          assertthat_0.2.0     ggplot2_2.2.1       
-## [100] openxlsx_4.1.0       semTools_0.4-14      coda_0.19-1         
-## [103] glasso_1.8           survival_2.42-3      tibble_1.4.2        
-## [106] arm_1.10-1           ggm_2.3              ellipse_0.4.1       
-## [109] cluster_2.0.7-1
+##   [1] minqa_1.2.4          colorspace_1.3-2     rjson_0.2.19        
+##   [4] rio_0.5.10           rprojroot_1.3-2      htmlTable_1.12      
+##   [7] corpcor_1.6.9        base64enc_0.1-3      rstudioapi_0.7      
+##  [10] lavaan_0.6-1         mvtnorm_1.0-7        splines_3.4.4       
+##  [13] mnormt_1.5-5         knitr_1.20           glasso_1.8          
+##  [16] Formula_1.2-3        nloptr_1.0.4         cluster_2.0.7-1     
+##  [19] png_0.1-7            compiler_3.4.4       backports_1.1.2     
+##  [22] assertthat_0.2.0     Matrix_1.2-14        lazyeval_0.2.1      
+##  [25] cli_1.0.0            acepack_1.4.1        htmltools_0.3.6     
+##  [28] tools_3.4.4          igraph_1.2.1         coda_0.19-1         
+##  [31] gtable_0.2.0         glue_1.2.0           reshape2_1.4.3      
+##  [34] Rcpp_0.12.17         carData_3.0-1        cellranger_1.1.0    
+##  [37] statnet.common_4.0.0 nlme_3.1-137         lisrelToR_0.1.4     
+##  [40] psych_1.8.4          stringr_1.3.1        network_1.13.0.1    
+##  [43] openxlsx_4.1.0       lme4_1.1-17          ggm_2.3             
+##  [46] semTools_0.4-14      gtools_3.5.0         XML_3.98-1.11       
+##  [49] MASS_7.3-50          scales_0.5.0         BDgraph_2.50        
+##  [52] hms_0.4.2            parallel_3.4.4       huge_1.2.7          
+##  [55] RColorBrewer_1.1-2   yaml_2.1.19          curl_3.2            
+##  [58] pbapply_1.3-4        gridExtra_2.3        ggplot2_2.2.1       
+##  [61] rpart_4.1-13         latticeExtra_0.6-28  stringi_1.2.2       
+##  [64] sem_3.1-9            checkmate_1.8.5      boot_1.3-20         
+##  [67] zip_1.0.0            rlang_0.2.0          pkgconfig_2.0.1     
+##  [70] d3Network_0.5.2.1    arm_1.10-1           evaluate_0.10.1     
+##  [73] lattice_0.20-35      purrr_0.2.5          bindr_0.1.1         
+##  [76] htmlwidgets_1.2      tidyselect_0.2.4     plyr_1.8.4          
+##  [79] magrittr_1.5         R6_2.2.2             Hmisc_4.1-1         
+##  [82] sna_2.4              pillar_1.2.3         haven_1.1.1         
+##  [85] whisker_0.3-2        foreign_0.8-70       rockchalk_1.8.111   
+##  [88] survival_2.42-3      semPlot_1.1          abind_1.4-5         
+##  [91] nnet_7.3-12          tibble_1.4.2         crayon_1.3.4        
+##  [94] car_3.0-0            fdrtool_1.2.15       utf8_1.1.4          
+##  [97] ellipse_0.4.1        rmarkdown_1.9        jpeg_0.1-8          
+## [100] grid_3.4.4           readxl_1.1.0         qgraph_1.5          
+## [103] data.table_1.11.4    pbivnorm_0.6.0       forcats_0.3.0       
+## [106] matrixcalc_1.0-3     digest_0.6.15        mi_1.0              
+## [109] stats4_3.4.4         munsell_0.4.3
 ```
