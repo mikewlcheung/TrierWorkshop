@@ -1,4 +1,4 @@
-# Workshop: Testing Model-Driven Hypotheses with Big Data with R
+# [Big Data in Psychology 2018](https://conferences.leibniz-psychology.org/index.php/bigdata/bigdata2018) post-conference workshop: Testing Model-Driven Hypotheses with Big Data with R
 * By Mike Cheung
    
 ## Goals of this workshop
