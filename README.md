@@ -6,7 +6,6 @@
 * Run the proposed approach with two real data sets;
 * Exchange ideas on the best way to analyze Big Data in psychology. 
 
-
 ## Download the materials of this workshop from Github: https://github.com/mikewlcheung/TrierWorkshop
     
 ## Installing the R packages

@@ -19,8 +19,8 @@ editor_options:
 * The dataset is available at http://www.worldvaluessurvey.org/WVSDocumentationWVL.jsp. Users are required to register before they can download the data.
 * In this illustration, we will use the dataset in the R format (`WVS_Longitudinal_1981-2014_rdata_v_2015_04_18.zip`).
 * The dataset contains data from 343,309 participants on 1,377 variables spanning across 100 regions and 6 waves (1981-1984, 1990-1994, 1995-1998, 1999-2004, 2005-2009, and 2010-2014).
-* The sizes of the data in hard disk and in RAM are 1,389 MB and 1,821 MB, respectively.
-* The following R code is used to read and clean up the data. The final data set is named `WVS.Rdata` for ease of manipulations.
+* The sizes of the data in hard disk and RAM are 1,389 MB and 1,821 MB, respectively.
+* The following R code is used to read and clean up the data. The final data set is named `WVS.Rdata` for ease of analyses.
 * As an illustration, we only used 25% of the original data in this workshop.
 ```{r, eval=FALSE}
 ## You don't need to download the data. The data are stored in "WVS.Rdata"
@@ -51,7 +51,7 @@ set.seed(391373)
 size <- 0.25
 
 ## Group by S002 (Wave) and S003 (Region)
-# Select 25% of the data
+## Select 25% of the data
 WVS <- WVS %>% group_by(S002, S003) %>% sample_frac(size=size) 
 
 ## Save the data so that we do not need to read it from raw data again
@@ -59,11 +59,11 @@ save(WVS, file="WVS.Rdata")
 ```
 
 # Multiple regression
-* In this section, we illustrate how to fit a regression model with both random split and stratified split.
+* In this section, we illustrate how to fit a regression model with both a random split and stratified split.
 
 ## Random split: Fixed-effects meta-analysis
 * We randomly split the data into *k*=100 *studies*.
-* We regress *satisfaction with your life* (A170) on *subjective state of health* (A009), *freedom of choice and control* (A173), *satisfaction with fiNAcial situation of household* (C006), *sex* (X001), and *age* (X003) in each *study*.
+* We regress *satisfaction with your life* (A170) on the *subjective state of health* (A009), *freedom of choice and control* (A173), *satisfaction with finacial situation of household* (C006), *sex* (X001), and *age* (X003) in each *study*.
 * The following figure displays the regression model.
 
 ```{r, echo=FALSE, message=FALSE, purl=FALSE}
@@ -71,18 +71,18 @@ library(lavaan)
 library(metaSEM)
 
 my.model <- "A170~y1*A009+y2*A173+y3*C006+y4*X001+y5*X003"
-plot(my.model, col="yellow", sizeMan=8)
+plot(my.model, col="yellow", sizeMan=8, edge.label.cex=2)
 ```
 
-* The estimated regression coefficients are treated as effect sizes for a multivariate fixed-effects meta-analysis.
+* The estimated regression coefficients are treated as the effect sizes for a multivariate fixed-effects meta-analysis.
 * The variables used in this demonstration are:
-    + *State of health (subjective)* (A009): 1 (Very good); 4 (Very poor) (it is reversed before the analyses)
-    + *Satisfaction with your life* (A170): 1 (Dissatisfied); 10 (Satisfied)
-    + *How much freedom of choice and control* (A173): 1 (None =at all); 10 (A great deal)
-    + *Satisfaction with fiNAcial situation of household* (C006): 1 (None at all); 10 (A great deal)
-    + *Sex* (X001): 1 (Male); 2 (Female)
+    + *State of health (subjective)* (A009): 1 (Very good) to 4 (Very poor) (it is reversed before the analyses)
+    + *Satisfaction with your life* (A170): 1 (Dissatisfied) to 10 (Satisfied)
+    + *How much freedom of choice and control* (A173): 1 (None =at all) to 10 (A great deal)
+    + *Satisfaction with finacial situation of household* (C006): 1 (None at all) to 10 (A great deal)
+    + *Sex* (X001): 1 (Male) and 2 (Female)
     + *Age* (X003)
-    + Negative values in the original dataset represent missing values. They are recoded into missing values (NA) before the analysis.
+* **Note**. Negative values in the original dataset represent missing values. They are recoded into missing values (NA) before the analysis.
 ```{r, message=FALSE, cache=FALSE}
 ## Load the libraries
 library(dplyr)
@@ -101,7 +101,7 @@ WVS <- select(WVS, c(A009, A170, A173, C006, X001, X003, S002, S003))
 ## Data cleaning
 ## Reverse coding for A009
 ## Recode all negative values as NA
-## Age (X003) is divided by 10 to improve numerical stability.
+## Age (X003) is divided by 10 to improve the numerical stability.
 WVS <- mutate(WVS,
               A009 = 5-ifelse(A009 < 0, yes=NA, no=A009),
               A170 =   ifelse(A170 < 0, yes=NA, no=A170),
@@ -110,7 +110,7 @@ WVS <- mutate(WVS,
               X001 =   ifelse(X001 < 0, yes=NA, no=X001),
               X003 =   ifelse(X003 < 0, yes=NA, no=X003/10))
 
-## No. of studies
+## No. of pseudo studies
 k <- 100
 
 ## Set seed for reproducibility
@@ -125,9 +125,10 @@ table(Study)
 ## Append "Study" into the dataset
 WVS$Study <- Study
 
-## Function to fit regression analysis
+## Function to fit the regression analysis
 ## y1 to y5: Regression coefficients for A009, A173, C006, X001, and X003.
 ## v11 to v55: Sampling covariance matrix of the parameter estimates
+## try(): Run an analysis and capture the potential errors
 fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                                      silent=TRUE)
 
@@ -138,9 +139,9 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                               v22=NA,v32=NA,v42=NA,v52=NA,v33=NA,
                               v43=NA,v53=NA,v44=NA,v54=NA,v55=NA)
                           } else {
-                            ## Extract the regression coefficients excluding the intercept
+                            ## Extract the regression coefficients by excluding the intercept
                             y <- unname(coef(fit))
-                            ## Extract the sampling covariance matrix excluding the intercept
+                            ## Extract the sampling covariance matrix by excluding the intercept
                             v <- vech(vcov(fit)[-1,-1])
                             c(y1=y[2],y2=y[3],y3=y[4],y4=y[5],y5=y[6],
                                  v11=v[1],v21=v[2],v31=v[3],v41=v[4],v51=v[5],
@@ -149,7 +150,7 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                           }
 }
 
-########## Split data by "Study" and analyze data with the fun.reg() function on each "Study"
+########## Split the data by "Study" and analyze data with the fun.reg() function on each "Study"
 FEM1.reg <- WVS %>% group_by(Study) %>% do(mod=(fun.reg(.)))
 FEM1.reg
 
@@ -167,17 +168,17 @@ FEM2.reg <- meta(y=cbind(y1,y2,y3,y4,y5),
 summary(FEM2.reg)
 ```
 
-* As a comparison we also test the regression analysis on all data (*N*=`r nrow(WVS)`).
+* As a comparison, we also test the regression analysis on all data (*N*=`r nrow(WVS)`). The results are comparable.
 ```{r, cache=FALSE}
 summary( lm(A170~A009+A173+C006+X001+X003, data=WVS) )
 ```
 
-* The following table shows the effects of different *k* in the full dataset.
+* The following table shows the effects of different *k* in the **full** dataset (not the 25% used in the workshop).
 ![](./figures/extra1.png)
 
 ## Stratified split: Random-effects meta-analysis
 * The data are grouped according to `Wave` and `Country`. It may make more sense to run the analyses by `Wave` and `Country`.
-* Random-effects models are used to account for the differences in `Wave` and `Country` and mixed-effects models are also fitted by using `Wave` as a moderator.
+* Random-effects models are used to account for the differences in `Wave` and `Country`, and mixed-effects models are also fitted by using `Wave` as a moderator.
 ```{r, cache=FALSE}
 ## Clear all objects in the work space
 rm(list=ls())
@@ -207,7 +208,7 @@ WVS <- mutate(WVS,
 
 * We conduct the same regression analysis in each `Wave` and `Country`.
 ```{r, cache=FALSE}
-## Function to fit regression model
+## Function to fit a regression model
 ## y1 to y5: Regression coefficients from A170, A009, A173, C006, X001, and X003.
 ## v11 to v55: Sampling covariance matrix of the parameter estimates
 fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
@@ -231,7 +232,7 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                           }
 }
 
-########## Split data by Wave and Country and analyze with the fun.reg() function
+########## Split the data by Wave and Country and analyze with the fun.reg() function
 ## Set Wave and Country as key variables for fast reference
 ## S002: Wave (1 to 6)
 ## S003: Country
@@ -264,8 +265,6 @@ REM3.reg <- meta(y=cbind(y1,y2,y3,y4,y5),
                  v=cbind(v11,v21,v31,v41,v51,v22,v32,v42,v52,v33,v43,v53,v44,v54,v55),
                  x=S002, data=REM1.reg,
                  model.name="Wave as a moderator")
-## Rerun the analysis to remove error code
-# REM2.reg <- rerun(REM2.reg)
 summary(REM3.reg)
 ```
 
@@ -277,7 +276,7 @@ summary(REM3.reg)
 library(metaSEM)
 my.model <- "A170 ~ b*A173 + c*A009
              A173 ~ a*A009"
-plot(my.model, col="yellow", sizeMan=8)
+plot(my.model, col="yellow", sizeMan=8, edge.label.cex=2)
 ```
 
 ```{r, results='hide', cache=FALSE}
@@ -310,7 +309,7 @@ fun.med <- function(dt) { model.med <- 'A170 ~ b*A173 + c*A009
                          }
 }
 
-########## Split data by Wave and Country and analyze with the fun.med() function
+########## Split the data by Wave and Country and analyze with the fun.med() function
 REM1.med <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.med(.)))
 ```
 
@@ -326,7 +325,7 @@ REM2.med <- meta(y=cbind(y1,y2), v=cbind(v11,v21,v22), data=REM1.med,
 summary(REM2.med)
 ```
 
-* The following plot shows a multivariate generalization of the average effect size and its 95% confidence interval in univariate meta-analysis.
+* The following plot shows a multivariate generalization of the average effect size and its 95% confidence interval in the univariate meta-analysis.
     + The black dots and the black dashed ellipses are the observed effect sizes and their 95% confidence ellipses in the primary studies.
     + The blue diamond represents the estimated average population effect sizes, while the red ellipse is the 95% confidence
 ellipse of estimated population average effect sizes.
@@ -348,6 +347,7 @@ plot(REM2.med, main="Multivariate meta-analysis",
      randeff.ellipse.lwd=3)
 ```
 
+* `Wave` explains about 1% and 20% of the variation of the indirect and direct effects, respectively.
 ```{r, cache=FALSE}
 ########## Meta-analyze results with a mixed-effects meta-analysis
 ## by using "Wave" (S002) as a predictor
@@ -408,7 +408,7 @@ fun.cov <- function(dt) {
   }
 }
 
-########## Split data by Wave and Country and extract the correlation matrices
+########## Split the data by Wave and Country and extract the correlation matrices
 ########## and sample size with the fun.cor() function
 stage0.cov <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.cov(.)))
 stage0.cov
@@ -434,8 +434,6 @@ data.cov <- data.cov[!index.na]
 ## cor.analysis = FALSE: analysis of covariance matrices
 REM1.cfa <- tssem1(data.cov, data.n, method="REM", RE.type="Diag",
                    cor.analysis = FALSE)
-## Rerun the analysis to remove error code
-## REM1.cfa <- rerun(REM1.cfa)
 summary(REM1.cfa)
 
 ## Show the pooled covariance matrix
@@ -446,6 +444,7 @@ Diag(coef(REM1.cfa, select="random"))
 
 ## Setup a one-factor CFA model
 cfa.model <- "Fraud =~ F114 + F115 + F116 + F117"
+
 plot(cfa.model, col="yellow")
 
 ## Convert it into RAM formulation
@@ -466,7 +465,9 @@ plot(REM2.cfa, color="green", what="stand")
 
 
 # Reliability analysis
-* Formula for coefficient alpha: $\alpha=\frac{q}{q-1}(1-\frac{\sum{Var(x_i)}}{Var(X_{Total})})$, where $q$ is the no. of items, $Var(x_i)$ is the variance of $i$th item, and $Var(X_{Total})$ is the variance of the total score.
+* Formula for coefficient alpha and its sampling variance:
+    + $\alpha=\frac{q}{q-1}(1-\frac{\sum{Var(x_i)}}{Var(X_{Total})})$, where $q$ is the no. of items, $Var(x_i)$ is the variance of $i$th item, and $Var(X_{Total})$ is the variance of the total score;
+    + $v = 2q(1-\alpha)^2/((q-1)(n-2))$ (Bonett, 2010, Eq. 5)^[Bonett, D. G. (2010). Varying coefficient meta-analytic methods for alpha reliability. *Psychological Methods*, *15*(4), 368–385. https://doi.org/10.1037/a0020142]
 * The coefficient alpha and its sampling variance are estimated in each `Wave` and `Country`.
 * Random- and mixed-effects meta-analyses are tested.
 ```{r, cache=FALSE}
@@ -494,14 +495,14 @@ fun.rel <- function(dt) { my.dt <- dt[, c("F114", "F115", "F116", "F117")]
                               ## y: coefficient alpha
                               y <- q*(1-var.item/var.scale)/(q-1)
                               ## Bonett (2010, Eq.5)
-                              ## v: sampling variance of y (Bonett, 2010, Eq. 5)
+                              ## v: sampling variance of y 
                               v <- 2*q*(1-y)^2/((q-1)*(n-2))
                               c(y=y,v=v)
                             }
                           }
 }
 
-########## Split data by Wave and Country and analyze data with the fun.rel() function
+########## Split the data by Wave and Country and analyze data with the fun.rel() function
 REM1.rel <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.rel(.)))
 
 ## Adjust the scale so that Wave 1 is S002=0.

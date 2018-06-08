@@ -16,9 +16,9 @@ editor_options:
 ---
 
 # Why not analyzing *all* raw data?
-* The data sets are too huge for the RAM.
-* Besides holding the data, lots of RAM are required for the analyses.
-* It takes a long time to analyze all data.
+* The data sets are too large for the RAM.
+* Besides holding the data, lots of RAM are required for the operations and analyses.
+* It takes too long to analyze all data.
 * [John Tukey](https://en.wikiquote.org/wiki/John_Tukey): *An approximate answer to the right question is worth a great deal more than a precise answer to the wrong question.*
 
 # Review of the Split/Analyze/Meta-analyze (SAM) Approach
@@ -60,7 +60,7 @@ editor_options:
     + $T^2$ is the heterogeneity variance of the random effects.
 * The fixed-effects model is a special case when $T^2=0$.
 
-## Preparing the datasets
+# Preparing the datasets
 * The datasets include more than 123 million records on 29 variables.
 * The datasets are available at http://stat-computing.org/dataexpo/2009/the-data.html.
 * The following R code is used to download the compressed files and uncompress them in the local hard disk.
@@ -133,7 +133,7 @@ Airlines <- bind_rows(Airlines)
 save(Airlines, file="AirlinesDemo.RData")
 ```
 
-# Descriptive statistics
+## Descriptive statistics
 * We first demonstrate how to obtain some descriptive statistics before conducting inferential statistics.
 
 ## Read the database into R
@@ -247,11 +247,9 @@ summary( lm(arr_delay~dep_delay+I(distance/1000), data=my.summary) )
 ```{r, echo=FALSE, message=FALSE}
 ## Load the library for meta-analysis
 library(metaSEM)
-
 my.model <- "ArrDelay~y1*DepDelay+y2*Distance"
-
 ## Display the graphica model
-plot(my.model, col="yellow", sizeMan=10)
+plot(my.model, col="yellow", sizeMan=10, edge.label.cex=2)
 ```
 
 * When preparing the function for the analysis, please make sure that it handles potential errors in each analysis.
@@ -296,9 +294,10 @@ fun.reg <- function(dt) {
 ## Set seed for reproducibility
 set.seed(569840)
 
-no.of.group <- 100
+k <- 100
 
-Airlines$Group <- sample(1:nrow(Airlines)) %% no.of.group + 1
+## %% reminder, e.g., 10 %% 4 =2
+Airlines$Group <- sample(1:nrow(Airlines)) %% k + 1
 
 ## Display the frequency table
 table(Airlines$Group)
@@ -455,8 +454,7 @@ plot(REM.lmer, axis.labels=c("Regression coefficient on DepDelay",
 * A multivariate mixed-effects meta-analysis is conducted by using `Year` as the moderator.
 ```{r}
 ## Meta-analyze results with a mixed-effects meta-analysis with year as a predictor
-## It may be necessary to use better starting values
-## since the variances of the variance components are very different.
+## scale(Year, scale=FALSE): center Year but not standardize it
 meta.mem <- meta(y=cbind(y1,y2), v=cbind(v11,v21,v22), data=meta.df2,
                  x=scale(Year, scale=FALSE),
                  model.name="Mixed effects model with year as a predictor")
@@ -468,17 +466,17 @@ summary(meta.mem)
     
 ```{r}
 ## Parameter estimates
-cbind(`Random`=coef(FEM.reg), 
-      `Stratified (by year)`=coef(REM.reg, select="fixed"),
-      `Stratified with lmer`=coef(REM.lmer, select = "fixed"))
+cbind(`Random` = coef(FEM.reg), 
+      `Stratified (by year)` = coef(REM.reg, select="fixed"),
+      `Stratified with lmer` = coef(REM.lmer, select = "fixed"))
 
 ## Function to get the SE
 SE <- function(x) sqrt(diag(vcov(x, select="fixed")))
 
 ## Standard errors
-cbind(`Random`=SE(FEM.reg), 
-      `Stratified (by year)`=SE(REM.reg),
-      `Stratified with lmer`=SE(REM.lmer))
+cbind(`Random` = SE(FEM.reg), 
+      `Stratified (by year)` = SE(REM.reg),
+      `Stratified with lmer` = SE(REM.lmer))
 ```
 
 # Settings of the R system

@@ -19,8 +19,8 @@ editor_options:
 * The dataset is available at http://www.worldvaluessurvey.org/WVSDocumentationWVL.jsp. Users are required to register before they can download the data.
 * In this illustration, we will use the dataset in the R format (`WVS_Longitudinal_1981-2014_rdata_v_2015_04_18.zip`).
 * The dataset contains data from 343,309 participants on 1,377 variables spanning across 100 regions and 6 waves (1981-1984, 1990-1994, 1995-1998, 1999-2004, 2005-2009, and 2010-2014).
-* The sizes of the data in hard disk and in RAM are 1,389 MB and 1,821 MB, respectively.
-* The following R code is used to read and clean up the data. The final data set is named `WVS.Rdata` for ease of manipulations.
+* The sizes of the data in hard disk and RAM are 1,389 MB and 1,821 MB, respectively.
+* The following R code is used to read and clean up the data. The final data set is named `WVS.Rdata` for ease of analyses.
 * As an illustration, we only used 25% of the original data in this workshop.
 
 ```r
@@ -52,7 +52,7 @@ set.seed(391373)
 size <- 0.25
 
 ## Group by S002 (Wave) and S003 (Region)
-# Select 25% of the data
+## Select 25% of the data
 WVS <- WVS %>% group_by(S002, S003) %>% sample_frac(size=size) 
 
 ## Save the data so that we do not need to read it from raw data again
@@ -60,24 +60,24 @@ save(WVS, file="WVS.Rdata")
 ```
 
 # Multiple regression
-* In this section, we illustrate how to fit a regression model with both random split and stratified split.
+* In this section, we illustrate how to fit a regression model with both a random split and stratified split.
 
 ## Random split: Fixed-effects meta-analysis
 * We randomly split the data into *k*=100 *studies*.
-* We regress *satisfaction with your life* (A170) on *subjective state of health* (A009), *freedom of choice and control* (A173), *satisfaction with fiNAcial situation of household* (C006), *sex* (X001), and *age* (X003) in each *study*.
+* We regress *satisfaction with your life* (A170) on the *subjective state of health* (A009), *freedom of choice and control* (A173), *satisfaction with finacial situation of household* (C006), *sex* (X001), and *age* (X003) in each *study*.
 * The following figure displays the regression model.
 
 ![](WVSDemo_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
 
-* The estimated regression coefficients are treated as effect sizes for a multivariate fixed-effects meta-analysis.
+* The estimated regression coefficients are treated as the effect sizes for a multivariate fixed-effects meta-analysis.
 * The variables used in this demonstration are:
-    + *State of health (subjective)* (A009): 1 (Very good); 4 (Very poor) (it is reversed before the analyses)
-    + *Satisfaction with your life* (A170): 1 (Dissatisfied); 10 (Satisfied)
-    + *How much freedom of choice and control* (A173): 1 (None =at all); 10 (A great deal)
-    + *Satisfaction with fiNAcial situation of household* (C006): 1 (None at all); 10 (A great deal)
-    + *Sex* (X001): 1 (Male); 2 (Female)
+    + *State of health (subjective)* (A009): 1 (Very good) to 4 (Very poor) (it is reversed before the analyses)
+    + *Satisfaction with your life* (A170): 1 (Dissatisfied) to 10 (Satisfied)
+    + *How much freedom of choice and control* (A173): 1 (None =at all) to 10 (A great deal)
+    + *Satisfaction with finacial situation of household* (C006): 1 (None at all) to 10 (A great deal)
+    + *Sex* (X001): 1 (Male) and 2 (Female)
     + *Age* (X003)
-    + Negative values in the original dataset represent missing values. They are recoded into missing values (NA) before the analysis.
+* **Note**. Negative values in the original dataset represent missing values. They are recoded into missing values (NA) before the analysis.
 
 ```r
 ## Load the libraries
@@ -97,7 +97,7 @@ WVS <- select(WVS, c(A009, A170, A173, C006, X001, X003, S002, S003))
 ## Data cleaning
 ## Reverse coding for A009
 ## Recode all negative values as NA
-## Age (X003) is divided by 10 to improve numerical stability.
+## Age (X003) is divided by 10 to improve the numerical stability.
 WVS <- mutate(WVS,
               A009 = 5-ifelse(A009 < 0, yes=NA, no=A009),
               A170 =   ifelse(A170 < 0, yes=NA, no=A170),
@@ -106,7 +106,7 @@ WVS <- mutate(WVS,
               X001 =   ifelse(X001 < 0, yes=NA, no=X001),
               X003 =   ifelse(X003 < 0, yes=NA, no=X003/10))
 
-## No. of studies
+## No. of pseudo studies
 k <- 100
 
 ## Set seed for reproducibility
@@ -139,9 +139,10 @@ table(Study)
 ## Append "Study" into the dataset
 WVS$Study <- Study
 
-## Function to fit regression analysis
+## Function to fit the regression analysis
 ## y1 to y5: Regression coefficients for A009, A173, C006, X001, and X003.
 ## v11 to v55: Sampling covariance matrix of the parameter estimates
+## try(): Run an analysis and capture the potential errors
 fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                                      silent=TRUE)
 
@@ -152,9 +153,9 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                               v22=NA,v32=NA,v42=NA,v52=NA,v33=NA,
                               v43=NA,v53=NA,v44=NA,v54=NA,v55=NA)
                           } else {
-                            ## Extract the regression coefficients excluding the intercept
+                            ## Extract the regression coefficients by excluding the intercept
                             y <- unname(coef(fit))
-                            ## Extract the sampling covariance matrix excluding the intercept
+                            ## Extract the sampling covariance matrix by excluding the intercept
                             v <- vech(vcov(fit)[-1,-1])
                             c(y1=y[2],y2=y[3],y3=y[4],y4=y[5],y5=y[6],
                                  v11=v[1],v21=v[2],v31=v[3],v41=v[4],v51=v[5],
@@ -163,7 +164,7 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                           }
 }
 
-########## Split data by "Study" and analyze data with the fun.reg() function on each "Study"
+########## Split the data by "Study" and analyze data with the fun.reg() function on each "Study"
 FEM1.reg <- WVS %>% group_by(Study) %>% do(mod=(fun.reg(.)))
 FEM1.reg
 ```
@@ -276,7 +277,7 @@ summary(FEM2.reg)
 ## Other values may indicate problems.)
 ```
 
-* As a comparison we also test the regression analysis on all data (*N*=85319).
+* As a comparison, we also test the regression analysis on all data (*N*=85319). The results are comparable.
 
 ```r
 summary( lm(A170~A009+A173+C006+X001+X003, data=WVS) )
@@ -308,12 +309,12 @@ summary( lm(A170~A009+A173+C006+X001+X003, data=WVS) )
 ## F-statistic:  9619 on 5 and 75502 DF,  p-value: < 2.2e-16
 ```
 
-* The following table shows the effects of different *k* in the full dataset.
+* The following table shows the effects of different *k* in the **full** dataset (not the 25% used in the workshop).
 ![](./figures/extra1.png)
 
 ## Stratified split: Random-effects meta-analysis
 * The data are grouped according to `Wave` and `Country`. It may make more sense to run the analyses by `Wave` and `Country`.
-* Random-effects models are used to account for the differences in `Wave` and `Country` and mixed-effects models are also fitted by using `Wave` as a moderator.
+* Random-effects models are used to account for the differences in `Wave` and `Country`, and mixed-effects models are also fitted by using `Wave` as a moderator.
 
 ```r
 ## Clear all objects in the work space
@@ -414,7 +415,7 @@ WVS <- mutate(WVS,
 * We conduct the same regression analysis in each `Wave` and `Country`.
 
 ```r
-## Function to fit regression model
+## Function to fit a regression model
 ## y1 to y5: Regression coefficients from A170, A009, A173, C006, X001, and X003.
 ## v11 to v55: Sampling covariance matrix of the parameter estimates
 fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
@@ -438,7 +439,7 @@ fun.reg <- function(dt) { fit <- try(lm(A170~A009+A173+C006+X001+X003, data=dt),
                           }
 }
 
-########## Split data by Wave and Country and analyze with the fun.reg() function
+########## Split the data by Wave and Country and analyze with the fun.reg() function
 ## Set Wave and Country as key variables for fast reference
 ## S002: Wave (1 to 6)
 ## S003: Country
@@ -580,8 +581,6 @@ REM3.reg <- meta(y=cbind(y1,y2,y3,y4,y5),
                  v=cbind(v11,v21,v31,v41,v51,v22,v32,v42,v52,v33,v43,v53,v44,v54,v55),
                  x=S002, data=REM1.reg,
                  model.name="Wave as a moderator")
-## Rerun the analysis to remove error code
-# REM2.reg <- rerun(REM2.reg)
 summary(REM3.reg)
 ```
 
@@ -705,7 +704,7 @@ fun.med <- function(dt) { model.med <- 'A170 ~ b*A173 + c*A009
                          }
 }
 
-########## Split data by Wave and Country and analyze with the fun.med() function
+########## Split the data by Wave and Country and analyze with the fun.med() function
 REM1.med <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.med(.)))
 ```
 
@@ -775,7 +774,7 @@ summary(REM2.med)
 ## Other values may indicate problems.)
 ```
 
-* The following plot shows a multivariate generalization of the average effect size and its 95% confidence interval in univariate meta-analysis.
+* The following plot shows a multivariate generalization of the average effect size and its 95% confidence interval in the univariate meta-analysis.
     + The black dots and the black dashed ellipses are the observed effect sizes and their 95% confidence ellipses in the primary studies.
     + The blue diamond represents the estimated average population effect sizes, while the red ellipse is the 95% confidence
 ellipse of estimated population average effect sizes.
@@ -793,6 +792,7 @@ plot(REM2.med, main="Multivariate meta-analysis",
 
 ![](WVSDemo_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
+* `Wave` explains about 1% and 20% of the variation of the indirect and direct effects, respectively.
 
 ```r
 ########## Meta-analyze results with a mixed-effects meta-analysis
@@ -901,7 +901,7 @@ fun.cov <- function(dt) {
   }
 }
 
-########## Split data by Wave and Country and extract the correlation matrices
+########## Split the data by Wave and Country and extract the correlation matrices
 ########## and sample size with the fun.cor() function
 stage0.cov <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.cov(.)))
 stage0.cov
@@ -1004,8 +1004,6 @@ data.cov <- data.cov[!index.na]
 ## cor.analysis = FALSE: analysis of covariance matrices
 REM1.cfa <- tssem1(data.cov, data.n, method="REM", RE.type="Diag",
                    cor.analysis = FALSE)
-## Rerun the analysis to remove error code
-## REM1.cfa <- rerun(REM1.cfa)
 summary(REM1.cfa)
 ```
 
@@ -1023,23 +1021,23 @@ summary(REM1.cfa)
 ## Intercept1  5.309808  0.152065 5.011766 5.607850 34.9180 < 2.2e-16 ***
 ## Intercept2  2.187638  0.078968 2.032864 2.342413 27.7029 < 2.2e-16 ***
 ## Intercept3  1.807313  0.074368 1.661555 1.953071 24.3024 < 2.2e-16 ***
-## Intercept4  1.306304  0.068463 1.172119 1.440490 19.0804 < 2.2e-16 ***
+## Intercept4  1.306304  0.068463 1.172119 1.440489 19.0804 < 2.2e-16 ***
 ## Intercept5  5.107079  0.154357 4.804545 5.409612 33.0862 < 2.2e-16 ***
-## Intercept6  2.304251  0.085684 2.136315 2.472188 26.8926 < 2.2e-16 ***
-## Intercept7  1.464499  0.065933 1.335274 1.593724 22.2121 < 2.2e-16 ***
+## Intercept6  2.304251  0.085684 2.136314 2.472188 26.8926 < 2.2e-16 ***
+## Intercept7  1.464499  0.065933 1.335273 1.593725 22.2121 < 2.2e-16 ***
 ## Intercept8  4.426382  0.147533 4.137223 4.715541 30.0027 < 2.2e-16 ***
-## Intercept9  1.760145  0.085049 1.593451 1.926838 20.6956 < 2.2e-16 ***
-## Intercept10 2.896797  0.131741 2.638590 3.155004 21.9886 < 2.2e-16 ***
-## Tau2_1_1    4.836520  0.480675 3.894415 5.778626 10.0619 < 2.2e-16 ***
-## Tau2_2_2    1.248770  0.128471 0.996971 1.500569  9.7202 < 2.2e-16 ***
-## Tau2_3_3    1.113660  0.113986 0.890253 1.337068  9.7702 < 2.2e-16 ***
-## Tau2_4_4    0.961187  0.096698 0.771662 1.150712  9.9401 < 2.2e-16 ***
-## Tau2_5_5    4.996338  0.494291 4.027546 5.965130 10.1081 < 2.2e-16 ***
-## Tau2_6_6    1.502021  0.152227 1.203662 1.800381  9.8670 < 2.2e-16 ***
-## Tau2_7_7    0.887169  0.089614 0.711528 1.062810  9.8999 < 2.2e-16 ***
-## Tau2_8_8    4.596720  0.452496 3.709843 5.483596 10.1586 < 2.2e-16 ***
-## Tau2_9_9    1.517366  0.150058 1.223258 1.811475 10.1119 < 2.2e-16 ***
-## Tau2_10_10  3.710587  0.361238 3.002574 4.418600 10.2719 < 2.2e-16 ***
+## Intercept9  1.760145  0.085050 1.593450 1.926839 20.6955 < 2.2e-16 ***
+## Intercept10 2.896797  0.131741 2.638590 3.155004 21.9887 < 2.2e-16 ***
+## Tau2_1_1    4.836520  0.480675 3.894414 5.778627 10.0619 < 2.2e-16 ***
+## Tau2_2_2    1.248770  0.128472 0.996970 1.500570  9.7202 < 2.2e-16 ***
+## Tau2_3_3    1.113660  0.113986 0.890252 1.337069  9.7702 < 2.2e-16 ***
+## Tau2_4_4    0.961187  0.096698 0.771663 1.150711  9.9401 < 2.2e-16 ***
+## Tau2_5_5    4.996338  0.494288 4.027552 5.965124 10.1082 < 2.2e-16 ***
+## Tau2_6_6    1.502021  0.152228 1.203660 1.800383  9.8669 < 2.2e-16 ***
+## Tau2_7_7    0.887169  0.089615 0.711528 1.062810  9.8998 < 2.2e-16 ***
+## Tau2_8_8    4.596720  0.452498 3.709840 5.483599 10.1585 < 2.2e-16 ***
+## Tau2_9_9    1.517366  0.150057 1.223260 1.811472 10.1119 < 2.2e-16 ***
+## Tau2_10_10  3.710587  0.361237 3.002576 4.418598 10.2719 < 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
@@ -1115,6 +1113,7 @@ Diag(coef(REM1.cfa, select="random"))
 ```r
 ## Setup a one-factor CFA model
 cfa.model <- "Fraud =~ F114 + F115 + F116 + F117"
+
 plot(cfa.model, col="yellow")
 ```
 
@@ -1180,26 +1179,26 @@ summary(REM2.cfa)
 ## 95% confidence intervals: z statistic approximation
 ## Coefficients:
 ##              Estimate Std.Error   lbound   ubound z value  Pr(>|z|)    
-## F114ONFraud  1.302500  0.035851 1.232233 1.372767  36.331 < 2.2e-16 ***
-## F115ONFraud  1.561492  0.041232 1.480679 1.642306  37.871 < 2.2e-16 ***
-## F116ONFraud  1.486635  0.041112 1.406058 1.567213  36.161 < 2.2e-16 ***
-## F117ONFraud  1.017748  0.031433 0.956141 1.079356  32.378 < 2.2e-16 ***
-## F114WITHF114 3.612561  0.175832 3.267937 3.957186  20.546 < 2.2e-16 ***
-## F115WITHF115 2.668157  0.198053 2.279979 3.056334  13.472 < 2.2e-16 ***
-## F116WITHF116 2.215495  0.189210 1.844651 2.586340  11.709 < 2.2e-16 ***
-## F117WITHF117 1.860269  0.145383 1.575324 2.145214  12.796 < 2.2e-16 ***
+## F114ONFraud  1.302500  0.035851 1.232233 1.372768  36.331 < 2.2e-16 ***
+## F115ONFraud  1.561493  0.041232 1.480679 1.642307  37.871 < 2.2e-16 ***
+## F116ONFraud  1.486635  0.041112 1.406057 1.567212  36.161 < 2.2e-16 ***
+## F117ONFraud  1.017748  0.031433 0.956140 1.079356  32.378 < 2.2e-16 ***
+## F114WITHF114 3.612561  0.175832 3.267937 3.957185  20.546 < 2.2e-16 ***
+## F115WITHF115 2.668157  0.198054 2.279979 3.056334  13.472 < 2.2e-16 ***
+## F116WITHF116 2.215498  0.189210 1.844653 2.586342  11.709 < 2.2e-16 ***
+## F117WITHF117 1.860272  0.145383 1.575327 2.145216  12.796 < 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
 ## Goodness-of-fit indices:
 ##                                                 Value
 ## Sample size                                76839.0000
-## Chi-square of target model                    19.6796
+## Chi-square of target model                    19.6795
 ## DF of target model                             2.0000
 ## p value of target model                        0.0001
 ## Number of constraints imposed on "Smatrix"     0.0000
 ## DF manually adjusted                           0.0000
-## Chi-square of independence model            2970.0387
+## Chi-square of independence model            2970.0521
 ## DF of independence model                       6.0000
 ## RMSEA                                          0.0107
 ## RMSEA lower 95% CI                             0.0067
@@ -1207,7 +1206,7 @@ summary(REM2.cfa)
 ## SRMR                                           0.0273
 ## TLI                                            0.9821
 ## CFI                                            0.9940
-## AIC                                           15.6796
+## AIC                                           15.6795
 ## BIC                                           -2.8194
 ## OpenMx status1: 0 ("0" or "1": The optimization is considered fine.
 ## Other values indicate problems.)
@@ -1229,7 +1228,9 @@ plot(REM2.cfa, color="green", what="stand")
 
 
 # Reliability analysis
-* Formula for coefficient alpha: $\alpha=\frac{q}{q-1}(1-\frac{\sum{Var(x_i)}}{Var(X_{Total})})$, where $q$ is the no. of items, $Var(x_i)$ is the variance of $i$th item, and $Var(X_{Total})$ is the variance of the total score.
+* Formula for coefficient alpha and its sampling variance:
+    + $\alpha=\frac{q}{q-1}(1-\frac{\sum{Var(x_i)}}{Var(X_{Total})})$, where $q$ is the no. of items, $Var(x_i)$ is the variance of $i$th item, and $Var(X_{Total})$ is the variance of the total score;
+    + $v = 2q(1-\alpha)^2/((q-1)(n-2))$ (Bonett, 2010, Eq. 5)^[Bonett, D. G. (2010). Varying coefficient meta-analytic methods for alpha reliability. *Psychological Methods*, *15*(4), 368–385. https://doi.org/10.1037/a0020142]
 * The coefficient alpha and its sampling variance are estimated in each `Wave` and `Country`.
 * Random- and mixed-effects meta-analyses are tested.
 
@@ -1258,14 +1259,14 @@ fun.rel <- function(dt) { my.dt <- dt[, c("F114", "F115", "F116", "F117")]
                               ## y: coefficient alpha
                               y <- q*(1-var.item/var.scale)/(q-1)
                               ## Bonett (2010, Eq.5)
-                              ## v: sampling variance of y (Bonett, 2010, Eq. 5)
+                              ## v: sampling variance of y 
                               v <- 2*q*(1-y)^2/((q-1)*(n-2))
                               c(y=y,v=v)
                             }
                           }
 }
 
-########## Split data by Wave and Country and analyze data with the fun.rel() function
+########## Split the data by Wave and Country and analyze data with the fun.rel() function
 REM1.rel <- WVS %>% group_by(S002, S003) %>% do(mod=(fun.rel(.)))
 
 ## Adjust the scale so that Wave 1 is S002=0.
@@ -1389,7 +1390,7 @@ sessionInfo()
 ## 
 ## other attached packages:
 ## [1] bindrcpp_0.2.2 dplyr_0.7.5    metaSEM_1.1.1  OpenMx_2.9.9  
-## [5] lavaan_0.6-1  
+## [5] lavaan_0.6-1   rmarkdown_1.9 
 ## 
 ## loaded via a namespace (and not attached):
 ##   [1] nlme_3.1-137         RColorBrewer_1.1-2   rprojroot_1.3-2     
@@ -1403,29 +1404,29 @@ sessionInfo()
 ##  [25] scales_0.5.0         checkmate_1.8.5      mvtnorm_1.0-7       
 ##  [28] psych_1.8.4          pbapply_1.3-4        sem_3.1-9           
 ##  [31] stringr_1.3.1        digest_0.6.15        pbivnorm_0.6.0      
-##  [34] foreign_0.8-70       minqa_1.2.4          rmarkdown_1.9       
-##  [37] rio_0.5.10           base64enc_0.1-3      jpeg_0.1-8          
-##  [40] pkgconfig_2.0.1      htmltools_0.3.6      lme4_1.1-17         
-##  [43] lisrelToR_0.1.4      htmlwidgets_1.2      rlang_0.2.0         
-##  [46] readxl_1.1.0         rstudioapi_0.7       huge_1.2.7          
-##  [49] bindr_0.1.1          gtools_3.5.0         statnet.common_4.0.0
-##  [52] acepack_1.4.1        zip_1.0.0            car_3.0-0           
-##  [55] magrittr_1.5         Formula_1.2-3        Matrix_1.2-14       
-##  [58] Rcpp_0.12.17         munsell_0.4.3        abind_1.4-5         
-##  [61] rockchalk_1.8.111    whisker_0.3-2        stringi_1.2.2       
-##  [64] yaml_2.1.19          carData_3.0-1        MASS_7.3-50         
-##  [67] plyr_1.8.4           matrixcalc_1.0-3     grid_3.4.4          
-##  [70] parallel_3.4.4       crayon_1.3.4         forcats_0.3.0       
-##  [73] lattice_0.20-35      semPlot_1.1          haven_1.1.1         
-##  [76] splines_3.4.4        sna_2.4              knitr_1.20          
-##  [79] pillar_1.2.3         igraph_1.2.1         rjson_0.2.19        
-##  [82] boot_1.3-20          corpcor_1.6.9        BDgraph_2.50        
-##  [85] reshape2_1.4.3       stats4_3.4.4         glue_1.2.0          
-##  [88] XML_3.98-1.11        evaluate_0.10.1      latticeExtra_0.6-28 
-##  [91] data.table_1.11.4    png_0.1-7            nloptr_1.0.4        
-##  [94] cellranger_1.1.0     purrr_0.2.5          gtable_0.2.0        
-##  [97] assertthat_0.2.0     ggplot2_2.2.1        openxlsx_4.1.0      
-## [100] semTools_0.4-14      coda_0.19-1          survival_2.42-3     
-## [103] glasso_1.8           tibble_1.4.2         arm_1.10-1          
-## [106] ggm_2.3              ellipse_0.4.1        cluster_2.0.7-1
+##  [34] foreign_0.8-70       minqa_1.2.4          rio_0.5.10          
+##  [37] base64enc_0.1-3      jpeg_0.1-8           pkgconfig_2.0.1     
+##  [40] htmltools_0.3.6      lme4_1.1-17          lisrelToR_0.1.4     
+##  [43] htmlwidgets_1.2      rlang_0.2.0          readxl_1.1.0        
+##  [46] rstudioapi_0.7       huge_1.2.7           bindr_0.1.1         
+##  [49] gtools_3.5.0         statnet.common_4.0.0 acepack_1.4.1       
+##  [52] zip_1.0.0            car_3.0-0            magrittr_1.5        
+##  [55] Formula_1.2-3        Matrix_1.2-14        Rcpp_0.12.17        
+##  [58] munsell_0.4.3        abind_1.4-5          rockchalk_1.8.111   
+##  [61] whisker_0.3-2        stringi_1.2.2        yaml_2.1.19         
+##  [64] carData_3.0-1        MASS_7.3-50          plyr_1.8.4          
+##  [67] matrixcalc_1.0-3     grid_3.4.4           parallel_3.4.4      
+##  [70] crayon_1.3.4         forcats_0.3.0        lattice_0.20-35     
+##  [73] semPlot_1.1          haven_1.1.1          splines_3.4.4       
+##  [76] sna_2.4              knitr_1.20           pillar_1.2.3        
+##  [79] igraph_1.2.1         rjson_0.2.19         boot_1.3-20         
+##  [82] corpcor_1.6.9        BDgraph_2.50         reshape2_1.4.3      
+##  [85] stats4_3.4.4         glue_1.2.0           XML_3.98-1.11       
+##  [88] evaluate_0.10.1      latticeExtra_0.6-28  data.table_1.11.4   
+##  [91] png_0.1-7            nloptr_1.0.4         cellranger_1.1.0    
+##  [94] purrr_0.2.5          gtable_0.2.0         assertthat_0.2.0    
+##  [97] ggplot2_2.2.1        openxlsx_4.1.0       semTools_0.4-14     
+## [100] coda_0.19-1          survival_2.42-3      glasso_1.8          
+## [103] tibble_1.4.2         arm_1.10-1           ggm_2.3             
+## [106] ellipse_0.4.1        cluster_2.0.7-1
 ```

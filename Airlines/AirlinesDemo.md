@@ -16,9 +16,9 @@ editor_options:
 ---
 
 # Why not analyzing *all* raw data?
-* The data sets are too huge for the RAM.
-* Besides holding the data, lots of RAM are required for the analyses.
-* It takes a long time to analyze all data.
+* The data sets are too large for the RAM.
+* Besides holding the data, lots of RAM are required for the operations and analyses.
+* It takes too long to analyze all data.
 * [John Tukey](https://en.wikiquote.org/wiki/John_Tukey): *An approximate answer to the right question is worth a great deal more than a precise answer to the wrong question.*
 
 # Review of the Split/Analyze/Meta-analyze (SAM) Approach
@@ -60,7 +60,7 @@ editor_options:
     + $T^2$ is the heterogeneity variance of the random effects.
 * The fixed-effects model is a special case when $T^2=0$.
 
-## Preparing the datasets
+# Preparing the datasets
 * The datasets include more than 123 million records on 29 variables.
 * The datasets are available at http://stat-computing.org/dataexpo/2009/the-data.html.
 * The following R code is used to download the compressed files and uncompress them in the local hard disk.
@@ -202,7 +202,7 @@ for (i in seq_along(file.names)) {
 
 ## Randomly select 1 % of the data and save it in "AirlinesDemo.RData"
 
-## Set seed for replicability
+## Set seed for reproducibility
 set.seed(39133)
 
 # Randomly select 1% of the data
@@ -228,7 +228,7 @@ Airlines <- bind_rows(Airlines)
 save(Airlines, file="AirlinesDemo.RData")
 ```
 
-# Descriptive statistics
+## Descriptive statistics
 * We first demonstrate how to obtain some descriptive statistics before conducting inferential statistics.
 
 ## Read the database into R
@@ -442,12 +442,13 @@ fun.reg <- function(dt) {
 
 
 ```r
-## For replicability
+## Set seed for reproducibility
 set.seed(569840)
 
-no.of.group <- 100
+k <- 100
 
-Airlines$Group <- sample(1:nrow(Airlines)) %% no.of.group + 1
+## %% reminder, e.g., 10 %% 4 =2
+Airlines$Group <- sample(1:nrow(Airlines)) %% k + 1
 
 ## Display the frequency table
 table(Airlines$Group)
@@ -917,8 +918,7 @@ plot(REM.lmer, axis.labels=c("Regression coefficient on DepDelay",
 
 ```r
 ## Meta-analyze results with a mixed-effects meta-analysis with year as a predictor
-## It may be necessary to use better starting values
-## since the variances of the variance components are very different.
+## scale(Year, scale=FALSE): center Year but not standardize it
 meta.mem <- meta(y=cbind(y1,y2), v=cbind(v11,v21,v22), data=meta.df2,
                  x=scale(Year, scale=FALSE),
                  model.name="Mixed effects model with year as a predictor")
@@ -977,9 +977,9 @@ summary(meta.mem)
 
 ```r
 ## Parameter estimates
-cbind(`Random`=coef(FEM.reg), 
-      `Stratified (by year)`=coef(REM.reg, select="fixed"),
-      `Stratified with lmer`=coef(REM.lmer, select = "fixed"))
+cbind(`Random` = coef(FEM.reg), 
+      `Stratified (by year)` = coef(REM.reg, select="fixed"),
+      `Stratified with lmer` = coef(REM.lmer, select = "fixed"))
 ```
 
 ```
@@ -993,9 +993,9 @@ cbind(`Random`=coef(FEM.reg),
 SE <- function(x) sqrt(diag(vcov(x, select="fixed")))
 
 ## Standard errors
-cbind(`Random`=SE(FEM.reg), 
-      `Stratified (by year)`=SE(REM.reg),
-      `Stratified with lmer`=SE(REM.lmer))
+cbind(`Random` = SE(FEM.reg), 
+      `Stratified (by year)` = SE(REM.reg),
+      `Stratified with lmer` = SE(REM.lmer))
 ```
 
 ```
@@ -1033,6 +1033,7 @@ sessionInfo()
 ## other attached packages:
 ## [1] metaSEM_1.1.1     OpenMx_2.9.9      bindrcpp_0.2.2    readr_1.1.1      
 ## [5] dplyr_0.7.5       R.utils_2.6.0     R.oo_1.22.0       R.methodsS3_1.7.1
+## [9] rmarkdown_1.9    
 ## 
 ## loaded via a namespace (and not attached):
 ##   [1] minqa_1.2.4          colorspace_1.3-2     rjson_0.2.19        
@@ -1067,9 +1068,9 @@ sessionInfo()
 ##  [88] survival_2.42-3      semPlot_1.1          abind_1.4-5         
 ##  [91] nnet_7.3-12          tibble_1.4.2         crayon_1.3.4        
 ##  [94] car_3.0-0            fdrtool_1.2.15       utf8_1.1.4          
-##  [97] ellipse_0.4.1        rmarkdown_1.9        jpeg_0.1-8          
-## [100] grid_3.4.4           readxl_1.1.0         qgraph_1.5          
-## [103] data.table_1.11.4    pbivnorm_0.6.0       forcats_0.3.0       
-## [106] matrixcalc_1.0-3     digest_0.6.15        mi_1.0              
-## [109] stats4_3.4.4         munsell_0.4.3
+##  [97] ellipse_0.4.1        jpeg_0.1-8           grid_3.4.4          
+## [100] readxl_1.1.0         qgraph_1.5           data.table_1.11.4   
+## [103] pbivnorm_0.6.0       forcats_0.3.0        matrixcalc_1.0-3    
+## [106] digest_0.6.15        mi_1.0               stats4_3.4.4        
+## [109] munsell_0.4.3
 ```
